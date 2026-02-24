@@ -105,7 +105,7 @@ class WallpaperProc:
         return target_method(self, path)
 
     @bind_wallpaper_type("video")
-    def start_by_video(self, video_path: str):
+    def start_by_video(self, video_path: str) -> str:
         """启动ffplay播放视频作为壁纸"""
         self.stop()
         self.title = f"FFPLAY_WALLPAPER_{os.path.basename(video_path)}"
@@ -135,7 +135,10 @@ class WallpaperProc:
     @bind_wallpaper_type("exe")
     def start_by_EXE(self, EXE_path: str):
         """将可执行程序作为壁纸，尝试从同目录下的同名.json文件读取窗口标题"""
+        # 保存从JSON读取的标题
+        saved_title = self.title
         self.stop()
+        self.title = saved_title
         # 启动进程
         self.process = subprocess.Popen(
             EXE_path,
@@ -430,7 +433,7 @@ class SystemTrayManager:
         # 构建需要滚动的内容
         about_text = """
 动态壁纸程序
-版本 1.0.5
+版本 1.0.5.1
 作者：Octopus-h
 基于 FreeSimpleGUIWx 和 pywin32
 使用 ffplay 播放视频壁纸
@@ -453,6 +456,7 @@ exe版本请到Github项目history文件夹中查找，或查看release
 等等......
 
 更新历史：
+2026/2/25-v1.0.5.1：修正exe无法导入的bug(由python打包的exe启动过慢也可能失败)
 2026/2/24-v1.0.5：添加更新历史
                   更正了版本号
                   添加托盘选项 杂项 设置 (然而并未想好设置应包含什么)
