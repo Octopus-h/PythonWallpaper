@@ -46,6 +46,7 @@ def init(target):
         age = random.uniform(0, 1000)
         target.particles.append(Particle(x, y, vx, vy, size, color, age))
 
+# 警告：update()采用多线程调用，请勿写死循环，sleep，不应操作GUI
 def update(target):
     """更新粒子位置"""
     w, h = target.GetSize()

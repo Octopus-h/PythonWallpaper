@@ -277,7 +277,12 @@ class SystemTrayManager:
                                     '切换壁纸(.py文件)',
                                     ],
                                 '---',
-                                '关于',
+                                '杂项',
+                                    [
+                                        '关于',
+                                        '---',
+                                        '设置'
+                                    ],
                                 '---',
                                 '退出程序'
                             ]
@@ -425,25 +430,40 @@ class SystemTrayManager:
         # 构建需要滚动的内容
         about_text = """
 动态壁纸程序
-版本 1.0
+版本 1.0.5
 作者：Octopus-h
 基于 FreeSimpleGUIWx 和 pywin32
 使用 ffplay 播放视频壁纸
+Github项目地址：https://github.com/Octopus-h/PythonWallpaper
+BiliBili：https://space.bilibili.com/1549375854
 
 ffplay来自：
 https://github.com/Octopus-h/ffplay-minimal-build
 
 如果出现默认壁纸，可能是：exe没有配套json，你的壁纸路径改变，等等
 如果有疑问，请找到程序目录下的last.log，或许可以帮到你
+exe版本请到Github项目history文件夹中查找，或查看release
+更新时请记得复制resources下的配置文件(其实目前并不重要)
 
 致谢：
 感谢所有使用和支持本软件的朋友。
 感谢ffmpeg：https://git.ffmpeg.org/ffmpeg.git
-感谢cx_Freeze
+感谢cx_Freeze：https://cx-freeze.readthedocs.io/
+感谢wxPython：https://github.com/wxWidgets/Phoenix/blob/wxPython-4.2.0
+等等......
+
+更新历史：
+2026/2/24-v1.0.5：添加更新历史
+                  更正了版本号
+                  添加托盘选项 杂项 设置 (然而并未想好设置应包含什么)
+                  使关于的窗口更大，字体更大
+                  修改WallpaperFrame，采用多线程调用update()，避免阻塞主线程
+2026/2/23-v1.0.4：创建Github项目
     """.strip()
 
         layout = [
-            [sg.Multiline(about_text, size=(60, 15), disabled=False, autoscroll=False)]
+            [sg.Multiline(about_text, size=(120, 30), disabled=False, autoscroll=False,
+                      font=("宋体", 14))]
         ]
         
         window = sg.Window('关于', layout, finalize=True)
