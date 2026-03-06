@@ -456,6 +456,7 @@ exe版本请到Github项目history文件夹中查找，或查看release
 等等......
 
 更新历史：
+2026/3/6-v1.0.5.2：修正自启时无法加载.py脚本
 2026/2/25-v1.0.5.1：修正exe无法导入的bug(由python打包的exe启动过慢也可能失败)
 2026/2/24-v1.0.5：添加更新历史
                   更正了版本号
@@ -491,11 +492,12 @@ def main():
         # 加载配置文件中的壁纸路径
         wallpaper_path, wallpaper_type = load_wallpaper_path()
 
+        # 创建并运行系统托盘
+        tray_manager = SystemTrayManager(wallproc)
+
         # 启动壁纸
         wallproc.embed_to_workerw(wallproc.start(wallpaper_type, wallpaper_path))
 
-        # 创建并运行系统托盘
-        tray_manager = SystemTrayManager(wallproc)
         tray_manager.run()  # 阻塞，直到退出
 
     except KeyboardInterrupt:
