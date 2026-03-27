@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 import importlib.util
-from multiprocessing import Process, Queue
 import sys
 import os
 import subprocess
@@ -15,35 +14,41 @@ from FileEdit import *
 from WallpaperFrame import WallpaperFrame
 from WorkerW import *
 
-# ========== 装饰器与类型映射==========
-type_to_method = {}
+# ========== 装饰器与类型映射 ==========
+class Wrapper_tool:
+    """通用装饰器类"""
+    def __init__(self, pre_func: Optional[Callable] = None):
+        self.pre_func = pre_func          # 保存前置函数
+        self.event_handlers = {}          # 可用于后续注册事件
 
-def bind_wallpaper_type(target_type: str):
-    """装饰器：给业务方法绑定目标类型"""
-    def decorator(func: Callable) -> Callable:
-        @wraps(func)
-        def wrapper(self, path: str):
-            if not path or not os.path.isfile(path):
-                logger.error(f"无效路径：{path}")
-                return False
-            return func(self, path)
-        type_to_method[target_type] = wrapper
-        return wrapper
-    return decorator
+    def __call__(self, event_name: Optional[str] = None) -> Callable:
+        def decorator(func: Callable) -> Callable:
+            @wraps(func)
+            def wrapper(*args, **kwargs):          # 添加 **kwargs 以支持关键字参数
+                if self.pre_func:                  # 检查是否存在前置函数
+                    self.pre_func(*args, **kwargs) # 调用保存的前置函数
+                return func(*args, **kwargs)       # 调用原函数
+            self.event_handlers[event_name] = wrapper
+            return wrapper
+        return decorator
+    
+    def get_event(self, event_name: Optional[str]) -> Callable:
+        """返回一个可用的函数"""
+        if self.event_handlers[event_name] is None:
+            logger.error(f"事件 {event_name} 未注册")
+            raise AttributeError(f"事件 {event_name} 未注册，来自 Wrapper_tool")
+        return self.event_handlers[event_name]
 
-event_handlers = {}
+# ========== 装饰器定义 ==========
 
-def on_event(event_name: str):
-    """
-    装饰器工厂：将方法注册到事件映射表
-    :param event_name: 菜单项文本（即 tray.Read() 返回的事件字符串）
-    """
-    def decorator(func):
-        event_handlers[event_name] = func.__name__
-        return func
-    return decorator
+def bind_wallpaper_wrapper(self, path: str):
+    if not path or not os.path.isfile(path):
+        logger.error(f"无效路径：{path}")
 
-# ========== WallpaperProc 类==========
+bind_wallpaper_type = Wrapper_tool(bind_wallpaper_wrapper)
+
+on_event = Wrapper_tool()
+# ========== WallpaperProc 类 ==========
 class WallpaperProc:
     """壁纸进程管理类"""
     def __init__(self):
@@ -59,7 +64,7 @@ class WallpaperProc:
         self._py_module = None
         self.frame = None
         self._script_process = None
-        self.queue = Queue()
+        self.queue = None
 
     def start(self, type_: Optional[str], path: Optional[str]) -> bool:
         """统一启动入口"""
@@ -77,7 +82,7 @@ class WallpaperProc:
             logger.error(f"文件不存在：{path}，使用默认壁纸")
             type_, path = default_wallpaper()
 
-        if type_ not in type_to_method:
+        if type_ not in bind_wallpaper_type.event_handlers:
             logger.error(f"无对应类型的启动方法：{type_}，使用默认壁纸")
             type_, path = default_wallpaper()
 
@@ -101,7 +106,7 @@ class WallpaperProc:
                 logger.error(f".json文件不存在：{json_path}")
                 type_, path = default_wallpaper()
 
-        target_method = type_to_method[type_]
+        target_method = bind_wallpaper_type.get_event(type_)
         return target_method(self, path)
 
     @bind_wallpaper_type("video")
@@ -301,14 +306,6 @@ class SystemTrayManager:
         if not os.path.exists(icon_path):
             logger.warning("图标文件不存在，使用系统默认图标")
 
-        # 构建实例方法映射（将方法名转换为实际绑定的实例方法）
-        self._handlers = {}
-        for event, method_name in event_handlers.items():
-            if hasattr(self, method_name):
-                self._handlers[event] = getattr(self, method_name)
-            else:
-                logger.error(f"事件 {event} 对应的方法 {method_name} 不存在")
-
     def _autostart_menu_text(self):
         return "开机自启 ✓" if self.autostart_enabled else "开机自启"
 
@@ -332,9 +329,9 @@ class SystemTrayManager:
                     self.toggle_autostart()
                 else:
                     # 查找事件对应的处理方法
-                    handler = self._handlers.get(event)
+                    handler = on_event.get_event(event)
                     if handler:
-                        handler()   # 执行事件处理
+                        handler(self)   # 执行事件处理
                         if event == '退出程序':
                             break   # 退出事件循环
                     else:
@@ -445,7 +442,7 @@ https://github.com/Octopus-h/ffplay-minimal-build
 
 如果出现默认壁纸，可能是：exe没有配套json，你的壁纸路径改变，等等
 如果有疑问，请找到程序目录下的last.log，或许可以帮到你
-exe版本请到Github项目history文件夹中查找，或查看release
+exe版本请到Github项目查看release
 更新时请记得复制resources下的配置文件(其实目前并不重要)
 
 致谢：
@@ -456,6 +453,8 @@ exe版本请到Github项目history文件夹中查找，或查看release
 等等......
 
 更新历史：
+2026/3/27-v1.0.5.2：重写装饰器
+                    更换图标
 2026/3/6-v1.0.5.2：修正自启时无法加载.py脚本
 2026/2/25-v1.0.5.1：修正exe无法导入的bug(由python打包的exe启动过慢也可能失败)
 2026/2/24-v1.0.5：添加更新历史
