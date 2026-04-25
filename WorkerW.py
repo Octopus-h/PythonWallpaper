@@ -1,38 +1,37 @@
 import sys
-import logging
-from typing import Union
+from typing import Tuple, Union
+from FileEdit import wallpaper_logger
 import win32con
 import win32gui
 import win32api
 import ctypes
 import win32process
 
-logger = logging.getLogger(__name__)
 
-def get_screen_size():
+def get_screen_size() -> Tuple[int, int]:
     """
     获取桌面真实物理分辨率（仅 Windows，通过 ctypes 直接调用 API）
     返回 (width, height)
     """
     if not sys.platform.startswith("win"):
         # 非 Windows 系统可添加其他实现（如 tkinter），这里简单返回默认值
-        logger.warning("非 Windows 系统，返回默认分辨率 1920x1080")
+        wallpaper_logger.warning("非 Windows 系统，返回默认分辨率 1920x1080")
         return 1920, 1080
 
     try:
         # 设置进程 DPI 感知（推荐使用 2 = PROCESS_PER_MONITOR_DPI_AWARE）
         ctypes.windll.shcore.SetProcessDpiAwareness(2)
     except Exception as e:
-        logger.debug(f"设置 DPI 感知失败（可能已设置或系统不支持）：\n\t {e}")
+        wallpaper_logger.debug(f"设置 DPI 感知失败（可能已设置或系统不支持）：\n\t {e}")
 
     try:
         user32 = ctypes.windll.user32
         screen_w = user32.GetSystemMetrics(0)  # SM_CXSCREEN
         screen_h = user32.GetSystemMetrics(1)  # SM_CYSCREEN
-        logger.info(f"获取到 Windows 真实物理分辨率：{screen_w}x{screen_h}")
+        wallpaper_logger.info(f"获取到 Windows 真实物理分辨率：{screen_w}x{screen_h}")
         return screen_w, screen_h
     except Exception as e:
-        logger.error(f"获取屏幕分辨率失败：\n\t {e}")
+        wallpaper_logger.error(f"获取屏幕分辨率失败：\n\t {e}")
         # 回退方案：尝试使用 tkinter（可选，但会增加依赖）
         # 这里简单返回 1920x1080 避免崩溃
         return 1920, 1080
@@ -88,21 +87,21 @@ def kill_process_by_hwnd(hwnd):
             handle = win32api.OpenProcess(win32con.PROCESS_TERMINATE, False, pid)
             win32api.TerminateProcess(handle, 0)
             win32api.CloseHandle(handle)
-            logger.info(f"已终止进程 (PID: {pid})，窗口句柄: 0x{hwnd:08X}")
+            wallpaper_logger.info(f"已终止进程 (PID: {pid})，窗口句柄: 0x{hwnd:08X}")
             return True
     except Exception as e:
-        logger.error(f"通过窗口句柄终止进程失败: \n\t {e}")
+        wallpaper_logger.error(f"通过窗口句柄终止进程失败: \n\t {e}")
     return False
 
 def get_workerw():
     """获取 WorkerW 窗口句柄（Windows 桌面底层窗口）"""
     if not sys.platform.startswith("win"):
-        logger.error("get_workerw 仅在 Windows 下有效")
+        wallpaper_logger.error("get_workerw 仅在 Windows 下有效")
         return None
 
     progman = win32gui.FindWindow("Progman", None)
     if progman == 0:
-        logger.error("未找到 Progman 窗口")
+        wallpaper_logger.error("未找到 Progman 窗口")
         return None
 
     # 向 Progman 发送消息，触发创建 WorkerW（0x052C 是 WM_USER+?，用于切换桌面）
@@ -123,10 +122,10 @@ def get_workerw():
     win32gui.EnumWindows(enum_win, None)
 
     if not workerw:
-        logger.error("未找到 WorkerW 窗口")
+        wallpaper_logger.error("未找到 WorkerW 窗口")
         return None
 
-    logger.info(f"找到 WorkerW 窗口句柄：0x{workerw[0]:08X}")
+    wallpaper_logger.info(f"找到 WorkerW 窗口句柄：0x{workerw[0]:08X}")
     return workerw[0]
 
 
@@ -137,7 +136,7 @@ def set_windows_to_workerw(target: Union[str, int, None]):
     :return: 成功返回 hwnd，失败返回 -1
     """
     if not sys.platform.startswith("win"):
-        logger.error("set_windows_to_workerw 仅在 Windows 下有效")
+        wallpaper_logger.error("set_windows_to_workerw 仅在 Windows 下有效")
         return -1
 
     hwnd = 0
@@ -145,26 +144,26 @@ def set_windows_to_workerw(target: Union[str, int, None]):
     # ----- 解析目标窗口 -----
     if isinstance(target, str):
         if not target.strip():
-            logger.error("窗口标题不能为空")
+            wallpaper_logger.error("窗口标题不能为空")
             return False
         hwnd = win32gui.FindWindow(None, target.strip())
         if hwnd == 0:
-            logger.warning(f"未找到标题为 '{target}' 的窗口")
+            wallpaper_logger.warning(f"未找到标题为 '{target}' 的窗口")
             return -1
-        logger.info(f"通过标题 '{target}' 找到窗口句柄：0x{hwnd:08X}")
+        wallpaper_logger.info(f"通过标题 '{target}' 找到窗口句柄：0x{hwnd:08X}")
 
     elif isinstance(target, int):
         hwnd = target
         if hwnd <= 0:
-            logger.warning(f"无效窗口句柄：0x{hwnd:08X}")
+            wallpaper_logger.warning(f"无效窗口句柄：0x{hwnd:08X}")
             return -1
         if not win32gui.IsWindow(hwnd):
-            logger.warning(f"句柄 0x{hwnd:08X} 不是有效窗口")
+            wallpaper_logger.warning(f"句柄 0x{hwnd:08X} 不是有效窗口")
             return -1
-        logger.info(f"使用指定窗口句柄：0x{hwnd:08X}")
+        wallpaper_logger.info(f"使用指定窗口句柄：0x{hwnd:08X}")
 
     else:
-        logger.error(f"不支持的参数类型：{type(target)}，仅支持 str 或 int")
+        wallpaper_logger.error(f"不支持的参数类型：{type(target)}，仅支持 str 或 int")
         return -1
 
     # ----- 获取 WorkerW -----
@@ -197,11 +196,11 @@ def set_windows_to_workerw(target: Union[str, int, None]):
             win32con.SWP_NOZORDER | win32con.SWP_FRAMECHANGED  # 确保样式更新
         )
 
-        logger.info(f"窗口 0x{hwnd:08X} 已成功嵌入 WorkerW，尺寸：{screen_w}x{screen_h}")
+        wallpaper_logger.info(f"窗口 0x{hwnd:08X} 已成功嵌入 WorkerW，尺寸：{screen_w}x{screen_h}")
         return hwnd
 
     except Exception as e:
-        logger.exception(f"嵌入窗口到 WorkerW 失败：{e}")
+        wallpaper_logger.exception(f"嵌入窗口到 WorkerW 失败：{e}")
         return -1
 
 

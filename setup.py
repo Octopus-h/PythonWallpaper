@@ -19,7 +19,8 @@ include_files = [
     ("resources/ffmpeg", "resources/ffmpeg"),
     ("resources/icons", "resources/icons"),
     ("resources/mp4", "resources/mp4"),
-    ("resources/example.py", "resources/example.py")
+    ("resources/example.py", "resources/example.py"),
+    ("resources/LXGWWenKaiLite-Medium.ttc", "resources/LXGWWenKaiLite-Medium.ttc")
 ]
 
 # 可执行文件配置
@@ -36,6 +37,7 @@ build_exe_options = {
     "include_files": include_files,
     # 包含必要的模块：FreeSimpleGUIWx, wx, win32等
     "includes": [
+        "kivy",
         "FreeSimpleGUIWx",
         "wx",                # wxPython 核心
         "win32gui", "win32con", "subprocess", "ctypes",

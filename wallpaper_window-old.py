@@ -42,7 +42,7 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger(__name__)
-logger.info(f"程序启动，日志文件路径：{log_file_path}")  # 启动时记录日志路径
+wallpaper_logger.info(f"程序启动，日志文件路径：{log_file_path}")  # 启动时记录日志路径
 
 # ===================== JSON配置相关 =====================
 def get_config_path():
@@ -51,7 +51,7 @@ def get_config_path():
     config_dir = os.path.join(app_root, "resources")
     os.makedirs(config_dir, exist_ok=True)
     config_path = os.path.join(config_dir, "config.json")
-    logger.info(f"配置文件路径：{config_path}")
+    wallpaper_logger.info(f"配置文件路径：{config_path}")
     return config_path
 
 def init_config_file():
@@ -65,13 +65,13 @@ def init_config_file():
             }
             with open(config_path, "w", encoding="utf-8") as f:
                 json.dump(default_config, f, ensure_ascii=False, indent=4)
-            logger.info(f"配置文件不存在，已自动创建：{config_path}")
+            wallpaper_logger.info(f"配置文件不存在，已自动创建：{config_path}")
         return True
     except PermissionError:
-        logger.error("创建配置文件失败：没有写入权限！请以管理员身份运行程序")
+        wallpaper_logger.error("创建配置文件失败：没有写入权限！请以管理员身份运行程序")
         return False
     except Exception as e:
-        logger.error(f"创建配置文件失败：{e}")
+        wallpaper_logger.error(f"创建配置文件失败：{e}")
         return False
 
 def save_wallpaper_path(video_path: str):
@@ -86,11 +86,11 @@ def save_wallpaper_path(video_path: str):
         }
         with open(config_path, "w", encoding="utf-8") as f:
             json.dump(config_data, f, ensure_ascii=False, indent=4)
-        logger.info(f"壁纸路径已保存到程序目录：{config_path}")
+        wallpaper_logger.info(f"壁纸路径已保存到程序目录：{config_path}")
     except PermissionError:
-        logger.error("保存配置文件失败：没有写入权限！请以管理员身份运行程序")
+        wallpaper_logger.error("保存配置文件失败：没有写入权限！请以管理员身份运行程序")
     except Exception as e:
-        logger.error(f"保存配置文件失败：{e}")
+        wallpaper_logger.error(f"保存配置文件失败：{e}")
 
 def load_wallpaper_path() -> Optional[str]:
     """从JSON配置文件读取壁纸路径（不存在则先创建）"""
@@ -102,18 +102,18 @@ def load_wallpaper_path() -> Optional[str]:
         video_path = config_data.get("last_wallpaper_path", "")
         if not video_path or not os.path.isfile(video_path):
             if video_path:
-                logger.warning(f"配置文件中的路径无效：{video_path}")
+                wallpaper_logger.warning(f"配置文件中的路径无效：{video_path}")
             else:
-                logger.info("配置文件中无有效壁纸路径，将使用默认视频")
+                wallpaper_logger.info("配置文件中无有效壁纸路径，将使用默认视频")
             return None
-        logger.info(f"从程序目录配置文件加载壁纸路径：{video_path}")
+        wallpaper_logger.info(f"从程序目录配置文件加载壁纸路径：{video_path}")
         return video_path
     except json.JSONDecodeError:
-        logger.error("配置文件格式错误，将重新创建空配置文件")
+        wallpaper_logger.error("配置文件格式错误，将重新创建空配置文件")
         init_config_file()
         return None
     except Exception as e:
-        logger.error(f"读取配置文件失败：{e}")
+        wallpaper_logger.error(f"读取配置文件失败：{e}")
         return None
 
 def get_workerw():
@@ -135,11 +135,11 @@ def set_ffplay_to_workerw(ffplay_title):
     """将ffplay窗口嵌入到WorkerW（作为桌面壁纸）"""
     hwnd = win32gui.FindWindow(None, ffplay_title)
     if hwnd == 0:
-        logger.warning(f"FFplay窗口未找到: {ffplay_title}")
+        wallpaper_logger.warning(f"FFplay窗口未找到: {ffplay_title}")
         return False
     workerw = get_workerw()
     if not workerw:
-        logger.error("WorkerW未找到")
+        wallpaper_logger.error("WorkerW未找到")
         return False
     win32gui.SetParent(hwnd, workerw)
     style = win32gui.GetWindowLong(hwnd, win32con.GWL_STYLE)
@@ -174,7 +174,7 @@ class FFPlayWallpaperProc:
             "-loglevel", "quiet",
             "-i", video_path
         ]
-        logger.info(f"启动ffplay壁纸（分辨率：{screen_w}x{screen_h}）：" + " ".join(cmd))
+        wallpaper_logger.info(f"启动ffplay壁纸（分辨率：{screen_w}x{screen_h}）：" + " ".join(cmd))
         self.process = subprocess.Popen(
             cmd,
             creationflags = subprocess.CREATE_NO_WINDOW,
@@ -190,16 +190,16 @@ class FFPlayWallpaperProc:
             for _ in range(16):
                 result = set_ffplay_to_workerw(self.title)
                 if result:
-                    logger.info("ffplay窗口已嵌入桌面WorkerW并设置为全屏")
+                    wallpaper_logger.info("ffplay窗口已嵌入桌面WorkerW并设置为全屏")
                     return True
                 time.sleep(0.1)
-            logger.error("嵌入WorkerW并设置全屏失败")
+            wallpaper_logger.error("嵌入WorkerW并设置全屏失败")
         return False
 
     def stop(self):
         """停止ffplay进程"""
         if self.process and self.process.poll() is None:
-            logger.info("关闭ffplay进程")
+            wallpaper_logger.info("关闭ffplay进程")
             self.process.terminate()
         self.process = None
 
@@ -212,15 +212,15 @@ class FFPlayWallpaperProc:
                 user32 = ctypes.windll.user32
                 screen_w = user32.GetSystemMetrics(0)
                 screen_h = user32.GetSystemMetrics(1)
-                logger.info(f"获取到真实物理分辨率：{screen_w}x{screen_h}")
+                wallpaper_logger.info(f"获取到真实物理分辨率：{screen_w}x{screen_h}")
                 return screen_w, screen_h
             except Exception as e:
-                logger.warning(f"获取物理分辨率失败，使用Qt备用方案：{e}")
+                wallpaper_logger.warning(f"获取物理分辨率失败，使用Qt备用方案：{e}")
         app = QApplication.instance()
         if not app:
             app = QApplication(sys.argv)
         screen = app.primaryScreen().geometry()
-        logger.info(f"Qt获取分辨率：{screen.width()}x{screen.height()}")
+        wallpaper_logger.info(f"Qt获取分辨率：{screen.width()}x{screen.height()}")
         return screen.width(), screen.height()
 
 class SystemTrayManager:
@@ -262,11 +262,11 @@ class SystemTrayManager:
             self.wallproc.embed_to_workerw()
             save_wallpaper_path(file_path)
         else:
-            logger.info("已取消切换壁纸")
+            wallpaper_logger.info("已取消切换壁纸")
 
     def exit(self):
         """退出程序"""
-        logger.info("用户触发退出程序")
+        wallpaper_logger.info("用户触发退出程序")
         self.wallproc.stop()
         self.tray_icon.hide()
         self.app.quit()
@@ -287,9 +287,9 @@ def main():
     if not video_path:
         if os.path.isfile(default_video_path):
             video_path = default_video_path
-            logger.info(f"使用默认视频：{video_path}")
+            wallpaper_logger.info(f"使用默认视频：{video_path}")
         else:
-            logger.error(f"默认视频文件不存在：{default_video_path}")
+            wallpaper_logger.error(f"默认视频文件不存在：{default_video_path}")
             sys.exit(1)
 
     # 启动壁纸
