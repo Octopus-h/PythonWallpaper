@@ -181,6 +181,9 @@ class WallpaperProc:
                 # 执行模块代码
                 spec.loader.exec_module(module)  # type: ignore
 
+                if self.frame:
+                    self.frame.Close()
+
                 if hasattr(module, 'update') and callable(module.update) \
                 and hasattr(module, 'init') and callable(module.init) \
                 and hasattr(module, 'draw') and callable(module.draw):
@@ -188,6 +191,7 @@ class WallpaperProc:
                     self.frame = WallpaperFrame(module.update, module.init, module.draw)
                     # 获取句柄
                     self.Hwnd = self.frame.GetHandle()
+                    print(self.Hwnd)
                 else:
                     wallpaper_logger.error(f"获取update(), init()失败：{module}")
 
@@ -486,6 +490,7 @@ class SystemTrayManager:
 def main():
     wallproc = None  # 提前声明，便于 finally 中访问
     try:
+        app = WallpaperGUI()
         # 初始化壁纸管理器
         wallproc = WallpaperProc()
 
@@ -493,7 +498,6 @@ def main():
         wallpaper_path, wallpaper_type = load_wallpaper_path()
 
         # 创建并运行系统托盘
-        app = WallpaperGUI()
         tray_manager = SystemTrayManager(wallproc, app)
 
         # 启动壁纸

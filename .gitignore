@@ -2,3 +2,6 @@
 /release
 /__pycache__
 /other
+resources/config.json
+resources/__pycache__/example.cpython-39.pyc
+last.log

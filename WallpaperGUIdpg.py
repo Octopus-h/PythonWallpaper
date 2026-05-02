@@ -1,5 +1,3 @@
-import time
-
 from dearpygui import dearpygui as dpg
 import os
 
@@ -10,7 +8,8 @@ class WallpaperGUI:
         self.font_tag = "main_chs_font"
         self.font_path = os.path.join(os.path.dirname(__file__), "resources", "LXGWWenKaiLite-Light.ttf")
 
-        self.font = None
+        dpg.create_context()
+        self.setup_font()
 
     def build_about_text(self):
         return """
@@ -63,8 +62,6 @@ exe版本请到Github项目查看release
             dpg.bind_font(self.font_tag)
 
     def show_about_popup(self):
-        dpg.create_context()
-        self.setup_font()
 
         with dpg.window(label="关于", tag=self.window_tag, autosize=False,
                         show=True, no_collapse=True,
@@ -73,8 +70,8 @@ exe版本请到Github项目查看release
             dpg.add_button(label="关闭", width=-1, callback=lambda *_: [dpg.configure_item(self.window_tag, show=False), dpg.stop_dearpygui()])
 
         def on_resize():
-            vp_w = dpg.get_viewport_width()
-            vp_h = dpg.get_viewport_height()
+            vp_w = dpg.get_viewport_client_width()
+            vp_h = dpg.get_viewport_client_height()
             dpg.configure_item(self.window_tag, width=vp_w, height=vp_h)
 
         dpg.set_viewport_resize_callback(on_resize)
@@ -83,10 +80,9 @@ exe版本请到Github项目查看release
         dpg.setup_dearpygui()
         dpg.show_viewport()
         dpg.start_dearpygui()
-        dpg.destroy_context()
 
     def stop(self):
-        pass
+        dpg.destroy_context()
 
 if __name__ == '__main__':
     gui = WallpaperGUI()

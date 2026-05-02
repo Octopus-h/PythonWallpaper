@@ -1,179 +1,87 @@
-2026-04-25 12:13:12,540 - INFO - 程序启动，日志文件路径：e:\Code\wallpaper\last.log
-2026-04-25 12:13:24,425 - INFO - 程序启动，日志文件路径：e:\Code\wallpaper\last.log
-2026-04-25 12:13:24,813 - INFO - 获取到 Windows 真实物理分辨率：1920x1080
-2026-04-25 12:13:24,813 - INFO - 配置文件路径：e:\Code\wallpaper\resources\config.json
-2026-04-25 12:13:24,813 - INFO - 配置文件路径：e:\Code\wallpaper\resources\config.json
-2026-04-25 12:13:24,813 - INFO - 从配置文件加载成功：路径=E:\Code\wallpaper\resources\mp4\Warma.mp4，类型=video
-2026-04-25 12:13:24,813 - INFO - 初始化托盘管理器，开机自启初始状态: False
-2026-04-25 12:13:24,813 - WARNING - 通过窗口句柄终止进程失败: 
+2026-05-02 09:45:32,133 - INFO - 程序启动，日志文件路径：e:\Code\wallpaper\last.log
+2026-05-02 09:45:32,175 - INFO - 获取到 Windows 真实物理分辨率：1920x1080
+2026-05-02 09:45:32,175 - INFO - 配置文件路径：e:\Code\wallpaper\resources\config.json
+2026-05-02 09:45:32,175 - INFO - 配置文件路径：e:\Code\wallpaper\resources\config.json
+2026-05-02 09:45:32,175 - INFO - 从配置文件加载成功：路径=E:\Code\wallpaper\resources\example.py，类型=py
+2026-05-02 09:45:32,175 - INFO - 初始化托盘管理器，开机自启初始状态: False
+2026-05-02 09:45:32,175 - WARNING - 通过窗口句柄终止进程失败: 
 	 (87, 'OpenProcess', '参数错误。') 
 	 进程可能未结束
-2026-04-25 12:13:24,813 - INFO - 启动video壁纸（分辨率：1920x1080）：e:\Code\wallpaper\resources\ffmpeg\ffplay.exe -x 1920 -y 1080 -loop 0 -noborder -fs -window_title FFPLAY_WALLPAPER_Warma.mp4 -an -loglevel quiet -i E:\Code\wallpaper\resources\mp4\Warma.mp4
-2026-04-25 12:13:24,841 - WARNING - 未找到标题为 'FFPLAY_WALLPAPER_Warma.mp4' 的窗口
-2026-04-25 12:13:24,841 - WARNING - 第 1 次找到窗口但嵌入失败，稍后重试...
-2026-04-25 12:13:24,943 - WARNING - 未找到标题为 'FFPLAY_WALLPAPER_Warma.mp4' 的窗口
-2026-04-25 12:13:24,943 - WARNING - 第 2 次找到窗口但嵌入失败，稍后重试...
-2026-04-25 12:13:25,066 - INFO - 通过标题 'FFPLAY_WALLPAPER_Warma.mp4' 找到窗口句柄：0x00030532
-2026-04-25 12:13:25,068 - INFO - 找到 WorkerW 窗口句柄：0x0014054C
-2026-04-25 12:13:25,971 - INFO - 获取到 Windows 真实物理分辨率：1920x1080
-2026-04-25 12:13:26,031 - INFO - 窗口 0x00030532 已成功嵌入 WorkerW，尺寸：1920x1080
-2026-04-25 12:13:26,034 - INFO - 窗口已通过标题嵌入桌面 WorkerW
-2026-04-25 12:13:33,064 - INFO - _get_func调用：关于，icon：<pystray._win32.Icon object at 0x000001B3779F4FD0>
-2026-04-25 12:15:30,148 - INFO - 程序启动，日志文件路径：e:\Code\wallpaper\last.log
-2026-04-25 12:15:30,714 - INFO - 获取到 Windows 真实物理分辨率：1920x1080
-2026-04-25 12:15:30,714 - INFO - 配置文件路径：e:\Code\wallpaper\resources\config.json
-2026-04-25 12:15:30,714 - INFO - 配置文件路径：e:\Code\wallpaper\resources\config.json
-2026-04-25 12:15:30,714 - INFO - 从配置文件加载成功：路径=E:\Code\wallpaper\resources\mp4\Warma.mp4，类型=video
-2026-04-25 12:15:30,714 - INFO - 初始化托盘管理器，开机自启初始状态: False
-2026-04-25 12:15:30,714 - WARNING - 通过窗口句柄终止进程失败: 
+2026-05-02 09:45:32,175 - INFO - 获取到 Windows 真实物理分辨率：1920x1080
+2026-05-02 09:46:13,497 - INFO - _get_func调用：退出程序，icon：<pystray._win32.Icon object at 0x000001C8031565E0>
+2026-05-02 09:46:13,497 - INFO - 用户触发退出程序
+2026-05-02 09:46:13,497 - WARNING - 通过窗口句柄终止进程失败: 
 	 (87, 'OpenProcess', '参数错误。') 
 	 进程可能未结束
-2026-04-25 12:15:30,714 - INFO - 启动video壁纸（分辨率：1920x1080）：e:\Code\wallpaper\resources\ffmpeg\ffplay.exe -x 1920 -y 1080 -loop 0 -noborder -fs -window_title FFPLAY_WALLPAPER_Warma.mp4 -an -loglevel quiet -i E:\Code\wallpaper\resources\mp4\Warma.mp4
-2026-04-25 12:15:30,761 - WARNING - 未找到标题为 'FFPLAY_WALLPAPER_Warma.mp4' 的窗口
-2026-04-25 12:15:30,761 - WARNING - 第 1 次找到窗口但嵌入失败，稍后重试...
-2026-04-25 12:15:30,862 - WARNING - 未找到标题为 'FFPLAY_WALLPAPER_Warma.mp4' 的窗口
-2026-04-25 12:15:30,865 - WARNING - 第 2 次找到窗口但嵌入失败，稍后重试...
-2026-04-25 12:15:30,994 - INFO - 通过标题 'FFPLAY_WALLPAPER_Warma.mp4' 找到窗口句柄：0x000904F2
-2026-04-25 12:15:30,996 - INFO - 找到 WorkerW 窗口句柄：0x0014054C
-2026-04-25 12:15:31,912 - INFO - 获取到 Windows 真实物理分辨率：1920x1080
-2026-04-25 12:15:31,987 - INFO - 窗口 0x000904F2 已成功嵌入 WorkerW，尺寸：1920x1080
-2026-04-25 12:15:31,989 - INFO - 窗口已通过标题嵌入桌面 WorkerW
-2026-04-25 12:15:38,841 - INFO - _get_func调用：关于，icon：<pystray._win32.Icon object at 0x000002344467A640>
-2026-04-25 12:17:37,174 - INFO - _get_func调用：退出程序，icon：<pystray._win32.Icon object at 0x000002344467A640>
-2026-04-25 12:17:37,175 - INFO - 用户触发退出程序
-2026-04-25 12:17:37,177 - INFO - 关闭进程<Popen: returncode: None args: ['e:\\Code\\wallpaper\\resources\\ffmpeg\\ffp...>
-2026-04-25 12:17:37,177 - WARNING - 通过窗口句柄终止进程失败: 
-	 (5, 'TerminateProcess', '拒绝访问。') 
-	 进程可能未结束
-2026-04-25 12:19:16,707 - INFO - 程序启动，日志文件路径：e:\Code\wallpaper\last.log
-2026-04-25 12:19:24,020 - INFO - 程序启动，日志文件路径：e:\Code\wallpaper\last.log
-2026-04-25 12:19:24,419 - INFO - 获取到 Windows 真实物理分辨率：1920x1080
-2026-04-25 12:19:24,419 - INFO - 配置文件路径：e:\Code\wallpaper\resources\config.json
-2026-04-25 12:19:24,419 - INFO - 配置文件路径：e:\Code\wallpaper\resources\config.json
-2026-04-25 12:19:24,419 - INFO - 从配置文件加载成功：路径=E:\Code\wallpaper\resources\mp4\Warma.mp4，类型=video
-2026-04-25 12:19:24,439 - INFO - 初始化托盘管理器，开机自启初始状态: False
-2026-04-25 12:19:24,440 - WARNING - 通过窗口句柄终止进程失败: 
+2026-05-02 09:47:12,127 - INFO - 程序启动，日志文件路径：e:\Code\wallpaper\last.log
+2026-05-02 09:47:12,192 - INFO - 获取到 Windows 真实物理分辨率：1920x1080
+2026-05-02 09:47:12,192 - INFO - 配置文件路径：e:\Code\wallpaper\resources\config.json
+2026-05-02 09:47:12,192 - INFO - 配置文件路径：e:\Code\wallpaper\resources\config.json
+2026-05-02 09:47:12,192 - INFO - 从配置文件加载成功：路径=E:\Code\wallpaper\resources\example.py，类型=py
+2026-05-02 09:47:12,192 - INFO - 初始化托盘管理器，开机自启初始状态: False
+2026-05-02 09:47:12,192 - WARNING - 通过窗口句柄终止进程失败: 
 	 (87, 'OpenProcess', '参数错误。') 
 	 进程可能未结束
-2026-04-25 12:19:24,440 - INFO - 启动video壁纸（分辨率：1920x1080）：e:\Code\wallpaper\resources\ffmpeg\ffplay.exe -x 1920 -y 1080 -loop 0 -noborder -fs -window_title FFPLAY_WALLPAPER_Warma.mp4 -an -loglevel quiet -i E:\Code\wallpaper\resources\mp4\Warma.mp4
-2026-04-25 12:19:24,468 - WARNING - 未找到标题为 'FFPLAY_WALLPAPER_Warma.mp4' 的窗口
-2026-04-25 12:19:24,468 - WARNING - 第 1 次找到窗口但嵌入失败，稍后重试...
-2026-04-25 12:19:24,568 - WARNING - 未找到标题为 'FFPLAY_WALLPAPER_Warma.mp4' 的窗口
-2026-04-25 12:19:24,570 - WARNING - 第 2 次找到窗口但嵌入失败，稍后重试...
-2026-04-25 12:19:24,672 - INFO - 通过标题 'FFPLAY_WALLPAPER_Warma.mp4' 找到窗口句柄：0x000C06D6
-2026-04-25 12:19:24,673 - INFO - 找到 WorkerW 窗口句柄：0x0014054C
-2026-04-25 12:19:25,610 - INFO - 获取到 Windows 真实物理分辨率：1920x1080
-2026-04-25 12:19:25,654 - INFO - 窗口 0x000C06D6 已成功嵌入 WorkerW，尺寸：1920x1080
-2026-04-25 12:19:25,656 - INFO - 窗口已通过标题嵌入桌面 WorkerW
-2026-04-25 12:19:28,633 - INFO - _get_func调用：关于，icon：<pystray._win32.Icon object at 0x000001544FF8F520>
-2026-04-25 12:19:46,360 - INFO - _get_func调用：退出程序，icon：<pystray._win32.Icon object at 0x000001544FF8F520>
-2026-04-25 12:19:46,360 - INFO - 用户触发退出程序
-2026-04-25 12:19:46,360 - INFO - 关闭进程<Popen: returncode: None args: ['e:\\Code\\wallpaper\\resources\\ffmpeg\\ffp...>
-2026-04-25 12:19:46,361 - WARNING - 通过窗口句柄终止进程失败: 
-	 (5, 'TerminateProcess', '拒绝访问。') 
-	 进程可能未结束
-2026-04-25 12:19:46,420 - WARNING - 通过窗口句柄终止进程失败: 
+2026-05-02 09:47:12,209 - INFO - 获取到 Windows 真实物理分辨率：1920x1080
+2026-05-02 09:47:37,220 - INFO - _get_func调用：退出程序，icon：<pystray._win32.Icon object at 0x00000221495DF430>
+2026-05-02 09:47:37,220 - INFO - 用户触发退出程序
+2026-05-02 09:47:37,220 - WARNING - 通过窗口句柄终止进程失败: 
 	 (87, 'OpenProcess', '参数错误。') 
 	 进程可能未结束
-2026-04-25 12:19:46,420 - INFO - 程序结束
-2026-04-25 12:26:32,258 - INFO - 程序启动，日志文件路径：e:\Code\wallpaper\last.log
-2026-04-25 12:28:21,671 - INFO - 程序启动，日志文件路径：e:\Code\wallpaper\last.log
-2026-04-25 12:28:22,077 - INFO - 获取到 Windows 真实物理分辨率：1920x1080
-2026-04-25 12:28:22,077 - INFO - 配置文件路径：e:\Code\wallpaper\resources\config.json
-2026-04-25 12:28:22,086 - INFO - 配置文件路径：e:\Code\wallpaper\resources\config.json
-2026-04-25 12:28:22,087 - INFO - 从配置文件加载成功：路径=E:\Code\wallpaper\resources\mp4\Warma.mp4，类型=video
-2026-04-25 12:28:22,087 - INFO - 初始化托盘管理器，开机自启初始状态: False
-2026-04-25 12:28:22,087 - WARNING - 通过窗口句柄终止进程失败: 
+2026-05-02 09:47:54,278 - INFO - 程序启动，日志文件路径：e:\Code\wallpaper\last.log
+2026-05-02 09:47:54,331 - INFO - 获取到 Windows 真实物理分辨率：1920x1080
+2026-05-02 09:47:54,331 - INFO - 配置文件路径：e:\Code\wallpaper\resources\config.json
+2026-05-02 09:47:54,331 - INFO - 配置文件路径：e:\Code\wallpaper\resources\config.json
+2026-05-02 09:47:54,331 - INFO - 从配置文件加载成功：路径=E:\Code\wallpaper\resources\example.py，类型=py
+2026-05-02 09:48:03,843 - INFO - 初始化托盘管理器，开机自启初始状态: False
+2026-05-02 09:49:40,050 - WARNING - 通过窗口句柄终止进程失败: 
 	 (87, 'OpenProcess', '参数错误。') 
 	 进程可能未结束
-2026-04-25 12:28:22,087 - INFO - 启动video壁纸（分辨率：1920x1080）：e:\Code\wallpaper\resources\ffmpeg\ffplay.exe -x 1920 -y 1080 -loop 0 -noborder -fs -window_title FFPLAY_WALLPAPER_Warma.mp4 -an -loglevel quiet -i E:\Code\wallpaper\resources\mp4\Warma.mp4
-2026-04-25 12:28:22,131 - WARNING - 未找到标题为 'FFPLAY_WALLPAPER_Warma.mp4' 的窗口
-2026-04-25 12:28:22,132 - WARNING - 第 1 次找到窗口但嵌入失败，稍后重试...
-2026-04-25 12:28:22,234 - WARNING - 未找到标题为 'FFPLAY_WALLPAPER_Warma.mp4' 的窗口
-2026-04-25 12:28:22,237 - WARNING - 第 2 次找到窗口但嵌入失败，稍后重试...
-2026-04-25 12:28:22,343 - INFO - 通过标题 'FFPLAY_WALLPAPER_Warma.mp4' 找到窗口句柄：0x000805E8
-2026-04-25 12:28:22,347 - INFO - 找到 WorkerW 窗口句柄：0x0014054C
-2026-04-25 12:28:23,353 - INFO - 获取到 Windows 真实物理分辨率：1920x1080
-2026-04-25 12:28:23,374 - INFO - 窗口 0x000805E8 已成功嵌入 WorkerW，尺寸：1920x1080
-2026-04-25 12:28:23,374 - INFO - 窗口已通过标题嵌入桌面 WorkerW
-2026-04-25 12:28:27,048 - INFO - _get_func调用：关于，icon：<pystray._win32.Icon object at 0x0000021C247EE400>
-2026-04-25 12:28:40,760 - INFO - _get_func调用：退出程序，icon：<pystray._win32.Icon object at 0x0000021C247EE400>
-2026-04-25 12:28:40,761 - INFO - 用户触发退出程序
-2026-04-25 12:28:40,761 - INFO - 关闭进程<Popen: returncode: None args: ['e:\\Code\\wallpaper\\resources\\ffmpeg\\ffp...>
-2026-04-25 12:28:40,761 - WARNING - 通过窗口句柄终止进程失败: 
-	 (5, 'TerminateProcess', '拒绝访问。') 
-	 进程可能未结束
-2026-04-25 12:28:40,856 - WARNING - 通过窗口句柄终止进程失败: 
+2026-05-02 09:51:29,322 - INFO - 获取到 Windows 真实物理分辨率：1920x1080
+2026-05-02 09:52:18,339 - INFO - 程序启动，日志文件路径：e:\Code\wallpaper\last.log
+2026-05-02 09:52:18,386 - INFO - 获取到 Windows 真实物理分辨率：1920x1080
+2026-05-02 09:52:18,386 - INFO - 配置文件路径：e:\Code\wallpaper\resources\config.json
+2026-05-02 09:52:18,386 - INFO - 配置文件路径：e:\Code\wallpaper\resources\config.json
+2026-05-02 09:52:18,386 - INFO - 从配置文件加载成功：路径=E:\Code\wallpaper\resources\example.py，类型=py
+2026-05-02 09:52:21,530 - INFO - 初始化托盘管理器，开机自启初始状态: False
+2026-05-02 09:52:23,738 - WARNING - 通过窗口句柄终止进程失败: 
 	 (87, 'OpenProcess', '参数错误。') 
 	 进程可能未结束
-2026-04-25 12:28:40,856 - INFO - 程序结束
-2026-04-25 12:50:39,915 - INFO - 程序启动，日志文件路径：e:\Code\wallpaper\last.log
-2026-04-25 12:51:55,309 - INFO - 程序启动，日志文件路径：e:\Code\wallpaper\last.log
-2026-04-25 13:07:53,887 - INFO - 程序启动，日志文件路径：e:\Code\wallpaper\last.log
-2026-04-25 13:09:50,878 - INFO - 程序启动，日志文件路径：e:\Code\wallpaper\last.log
-2026-04-25 13:12:05,679 - INFO - 程序启动，日志文件路径：e:\Code\wallpaper\last.log
-2026-04-25 13:13:33,935 - INFO - 程序启动，日志文件路径：e:\Code\wallpaper\last.log
-2026-04-25 21:53:31,294 - INFO - 程序启动，日志文件路径：e:\Code\wallpaper\last.log
-2026-04-25 21:56:15,582 - INFO - 程序启动，日志文件路径：e:\Code\wallpaper\last.log
-2026-04-25 21:56:15,974 - INFO - 全局中字体注册成功: e:\Code\wallpaper\resources\LXGWWenKaiLite-Light.ttf
-2026-04-25 21:56:44,655 - INFO - 程序启动，日志文件路径：e:\Code\wallpaper\last.log
-2026-04-25 21:56:45,045 - INFO - 全局中字体注册成功: e:\Code\wallpaper\resources\LXGWWenKaiLite-Light.ttf
-2026-04-25 21:58:14,767 - INFO - 程序启动，日志文件路径：e:\Code\wallpaper\last.log
-2026-04-25 22:03:06,647 - INFO - 程序启动，日志文件路径：e:\Code\wallpaper\last.log
-2026-04-25 22:03:07,049 - INFO - 全局中字体注册成功: e:\Code\wallpaper\resources\LXGWWenKaiLite-Light.ttf
-2026-04-25 22:26:51,185 - INFO - 程序启动，日志文件路径：e:\Code\wallpaper\last.log
-2026-04-25 22:26:51,835 - INFO - 全局中字体注册成功: e:\Code\wallpaper\resources\LXGWWenKaiLite-Light.ttf
-2026-04-25 22:28:00,754 - INFO - 程序启动，日志文件路径：e:\Code\wallpaper\last.log
-2026-04-25 22:28:01,383 - INFO - 全局中字体注册成功: e:\Code\wallpaper\resources\LXGWWenKaiLite-Light.ttf
-2026-04-25 22:32:13,738 - INFO - 程序启动，日志文件路径：e:\Code\wallpaper\last.log
-2026-04-25 22:32:14,380 - INFO - 全局中字体注册成功: e:\Code\wallpaper\resources\LXGWWenKaiLite-Light.ttf
-2026-04-25 22:33:47,224 - INFO - 程序启动，日志文件路径：e:\Code\wallpaper\last.log
-2026-04-25 22:33:47,924 - INFO - 全局中字体注册成功: e:\Code\wallpaper\resources\LXGWWenKaiLite-Light.ttf
-2026-04-25 22:35:26,306 - INFO - 程序启动，日志文件路径：e:\Code\wallpaper\last.log
-2026-04-25 22:35:26,941 - INFO - 全局中字体注册成功: e:\Code\wallpaper\resources\LXGWWenKaiLite-Light.ttf
-2026-04-25 22:37:03,207 - INFO - 程序启动，日志文件路径：e:\Code\wallpaper\last.log
-2026-04-25 22:37:03,851 - INFO - 全局中字体注册成功: e:\Code\wallpaper\resources\LXGWWenKaiLite-Light.ttf
-2026-04-25 23:02:39,156 - INFO - 程序启动，日志文件路径：e:\Code\wallpaper\last.log
-2026-04-25 23:02:40,032 - INFO - 获取到 Windows 真实物理分辨率：1920x1080
-2026-04-25 23:02:40,032 - INFO - 配置文件路径：e:\Code\wallpaper\resources\config.json
-2026-04-25 23:02:40,032 - INFO - 配置文件路径：e:\Code\wallpaper\resources\config.json
-2026-04-25 23:02:40,032 - INFO - 从配置文件加载成功：路径=E:\Code\wallpaper\resources\mp4\Warma.mp4，类型=video
-2026-04-25 23:02:40,032 - INFO - 初始化托盘管理器，开机自启初始状态: False
-2026-04-25 23:02:40,048 - WARNING - 通过窗口句柄终止进程失败: 
+2026-05-02 09:52:47,746 - INFO - 获取到 Windows 真实物理分辨率：1920x1080
+2026-05-02 09:54:26,416 - INFO - 程序启动，日志文件路径：e:\Code\wallpaper\last.log
+2026-05-02 09:54:26,431 - INFO - 获取到 Windows 真实物理分辨率：1920x1080
+2026-05-02 09:54:33,461 - INFO - 程序启动，日志文件路径：e:\Code\wallpaper\last.log
+2026-05-02 09:54:33,477 - INFO - 获取到 Windows 真实物理分辨率：1920x1080
+2026-05-02 09:54:51,671 - INFO - 程序启动，日志文件路径：e:\Code\wallpaper\last.log
+2026-05-02 09:54:51,710 - INFO - 获取到 Windows 真实物理分辨率：1920x1080
+2026-05-02 09:54:51,711 - INFO - 配置文件路径：e:\Code\wallpaper\resources\config.json
+2026-05-02 09:54:51,711 - INFO - 配置文件路径：e:\Code\wallpaper\resources\config.json
+2026-05-02 09:54:51,712 - INFO - 从配置文件加载成功：路径=E:\Code\wallpaper\resources\example.py，类型=py
+2026-05-02 09:54:51,712 - INFO - 初始化托盘管理器，开机自启初始状态: False
+2026-05-02 09:54:51,713 - WARNING - 通过窗口句柄终止进程失败: 
 	 (87, 'OpenProcess', '参数错误。') 
 	 进程可能未结束
-2026-04-25 23:02:40,048 - INFO - 启动video壁纸（分辨率：1920x1080）：e:\Code\wallpaper\resources\ffmpeg\ffplay.exe -x 1920 -y 1080 -loop 0 -noborder -fs -window_title FFPLAY_WALLPAPER_Warma.mp4 -an -loglevel quiet -i E:\Code\wallpaper\resources\mp4\Warma.mp4
-2026-04-25 23:02:41,880 - WARNING - 未找到标题为 'FFPLAY_WALLPAPER_Warma.mp4' 的窗口
-2026-04-25 23:02:41,880 - WARNING - 第 1 次找到窗口但嵌入失败，稍后重试...
-2026-04-25 23:02:41,989 - WARNING - 未找到标题为 'FFPLAY_WALLPAPER_Warma.mp4' 的窗口
-2026-04-25 23:02:41,989 - WARNING - 第 2 次找到窗口但嵌入失败，稍后重试...
-2026-04-25 23:02:42,089 - WARNING - 未找到标题为 'FFPLAY_WALLPAPER_Warma.mp4' 的窗口
-2026-04-25 23:02:42,090 - WARNING - 第 3 次找到窗口但嵌入失败，稍后重试...
-2026-04-25 23:02:42,193 - WARNING - 未找到标题为 'FFPLAY_WALLPAPER_Warma.mp4' 的窗口
-2026-04-25 23:02:42,193 - WARNING - 第 4 次找到窗口但嵌入失败，稍后重试...
-2026-04-25 23:02:42,302 - WARNING - 未找到标题为 'FFPLAY_WALLPAPER_Warma.mp4' 的窗口
-2026-04-25 23:02:42,302 - WARNING - 第 5 次找到窗口但嵌入失败，稍后重试...
-2026-04-25 23:02:42,402 - WARNING - 未找到标题为 'FFPLAY_WALLPAPER_Warma.mp4' 的窗口
-2026-04-25 23:02:42,402 - WARNING - 第 6 次找到窗口但嵌入失败，稍后重试...
-2026-04-25 23:02:42,503 - WARNING - 未找到标题为 'FFPLAY_WALLPAPER_Warma.mp4' 的窗口
-2026-04-25 23:02:42,503 - WARNING - 第 7 次找到窗口但嵌入失败，稍后重试...
-2026-04-25 23:02:42,603 - WARNING - 未找到标题为 'FFPLAY_WALLPAPER_Warma.mp4' 的窗口
-2026-04-25 23:02:42,603 - WARNING - 第 8 次找到窗口但嵌入失败，稍后重试...
-2026-04-25 23:02:42,704 - WARNING - 未找到标题为 'FFPLAY_WALLPAPER_Warma.mp4' 的窗口
-2026-04-25 23:02:42,704 - WARNING - 第 9 次找到窗口但嵌入失败，稍后重试...
-2026-04-25 23:02:42,805 - WARNING - 未找到标题为 'FFPLAY_WALLPAPER_Warma.mp4' 的窗口
-2026-04-25 23:02:42,805 - WARNING - 第 10 次找到窗口但嵌入失败，稍后重试...
-2026-04-25 23:02:42,906 - WARNING - 未找到标题为 'FFPLAY_WALLPAPER_Warma.mp4' 的窗口
-2026-04-25 23:02:42,906 - WARNING - 第 11 次找到窗口但嵌入失败，稍后重试...
-2026-04-25 23:02:43,006 - INFO - 通过标题 'FFPLAY_WALLPAPER_Warma.mp4' 找到窗口句柄：0x000A05D2
-2026-04-25 23:02:43,091 - INFO - 找到 WorkerW 窗口句柄：0x000605DA
-2026-04-25 23:02:43,957 - INFO - 获取到 Windows 真实物理分辨率：1920x1080
-2026-04-25 23:02:44,002 - INFO - 窗口 0x000A05D2 已成功嵌入 WorkerW，尺寸：1920x1080
-2026-04-25 23:02:44,006 - INFO - 窗口已通过标题嵌入桌面 WorkerW
-2026-04-25 23:02:47,332 - INFO - _get_func调用：关于，icon：<pystray._win32.Icon object at 0x0000023FC9F84EB0>
-2026-04-25 23:03:30,578 - INFO - _get_func调用：退出程序，icon：<pystray._win32.Icon object at 0x0000023FC9F84EB0>
-2026-04-25 23:03:30,578 - INFO - 用户触发退出程序
-2026-04-25 23:03:30,579 - INFO - 关闭进程<Popen: returncode: None args: ['e:\\Code\\wallpaper\\resources\\ffmpeg\\ffp...>
-2026-04-25 23:03:30,581 - WARNING - 通过窗口句柄终止进程失败: 
-	 (5, 'TerminateProcess', '拒绝访问。') 
+2026-05-02 09:54:51,717 - INFO - 获取到 Windows 真实物理分辨率：1920x1080
+2026-05-02 09:54:56,883 - INFO - _get_func调用：退出程序，icon：<pystray._win32.Icon object at 0x00000234C199F430>
+2026-05-02 09:54:56,899 - INFO - 用户触发退出程序
+2026-05-02 09:54:56,899 - WARNING - 通过窗口句柄终止进程失败: 
+	 (87, 'OpenProcess', '参数错误。') 
 	 进程可能未结束
+2026-05-02 09:54:56,899 - INFO - 使用指定窗口句柄：0x000702A2
+2026-05-02 09:54:56,969 - INFO - 找到 WorkerW 窗口句柄：0x00070414
+2026-05-02 09:55:03,682 - INFO - 程序启动，日志文件路径：e:\Code\wallpaper\last.log
+2026-05-02 09:55:03,729 - INFO - 获取到 Windows 真实物理分辨率：1920x1080
+2026-05-02 09:55:03,729 - INFO - 配置文件路径：e:\Code\wallpaper\resources\config.json
+2026-05-02 09:55:03,729 - INFO - 配置文件路径：e:\Code\wallpaper\resources\config.json
+2026-05-02 09:55:03,729 - INFO - 从配置文件加载成功：路径=E:\Code\wallpaper\resources\example.py，类型=py
+2026-05-02 09:55:08,050 - INFO - 初始化托盘管理器，开机自启初始状态: False
+2026-05-02 09:55:18,712 - WARNING - 通过窗口句柄终止进程失败: 
+	 (87, 'OpenProcess', '参数错误。') 
+	 进程可能未结束
+2026-05-02 09:55:31,051 - INFO - 获取到 Windows 真实物理分辨率：1920x1080
+2026-05-02 09:56:02,884 - INFO - _get_func调用：退出程序，icon：<pystray._win32.Icon object at 0x00000204CA1C6D30>
+2026-05-02 09:56:02,884 - INFO - 用户触发退出程序
+2026-05-02 09:56:02,884 - WARNING - 通过窗口句柄终止进程失败: 
+	 (87, 'OpenProcess', '参数错误。') 
+	 进程可能未结束
+2026-05-02 09:56:37,186 - INFO - 使用指定窗口句柄：0x000A0404

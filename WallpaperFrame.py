@@ -6,6 +6,7 @@ import win32gui
 import dearpygui.dearpygui as dpg
 
 from WorkerW import get_screen_size
+from FileEdit import wallpaper_logger
 
 class WallpaperFrame:
     def __init__(self, update_func, init_func=None, draw_func=None, width=None, height=None, target_fps=60):
@@ -25,8 +26,6 @@ class WallpaperFrame:
         self._last_update_time = 0
         self._last_draw_time = 0
 
-        dpg.create_context()
-        self.setup_font()
         self._mutex = threading.Lock()
         self.data = {}
 
@@ -37,18 +36,18 @@ class WallpaperFrame:
 
         dpg.set_frame_callback(dpg.get_frame_count() + 1, self._on_frame)
 
-        dpg.create_viewport(title=self.viewport_title, width=self.width, height=self.height, decorated=True)
+        dpg.create_viewport(title=self.viewport_title, width=self.width, height=self.height, decorated=False)
         dpg.setup_dearpygui()
         dpg.show_viewport()
-
-        dpg.start_dearpygui()
-        self.Close()
 
     def GetHandle(self):
         for _ in range(30):
             hwnd = win32gui.FindWindow(None, self.viewport_title)
             if hwnd:
+                wallpaper_logger.debug(f"获取到句柄{hwnd}")
                 return hwnd
+            else:
+                wallpaper_logger.warning(f"未获取到句柄")
             time.sleep(0.05)
         return None
 
@@ -64,17 +63,6 @@ class WallpaperFrame:
                     no_collapse=True,
                     no_close=True):
             dpg.add_drawlist(width=self.width, height=self.height, tag=self.canvas_tag)
-
-        dpg.bind_font(self.font_tag)
-
-    def setup_font(self):
-        font_path = os.path.join(os.path.dirname(__file__), "resources", "LXGWWenKaiLite-Light.ttf")
-        if not os.path.exists(font_path):
-            print("未找到中文字体，可能显示异常")
-            return
-        with dpg.font_registry():
-            dpg.add_font(font_path, 22, tag=self.font_tag)
-        dpg.bind_font(self.font_tag)
 
     def _on_frame(self):
         if not self._running:
@@ -120,9 +108,11 @@ class WallpaperFrame:
     def draw_rectangle(self, pmin: Tuple[float, float], pmax: Tuple[float, float],
                        color: Tuple[int, int, int, int] = (255, 255, 255, 255),
                        fill: Tuple[int, int, int, int] = (0, 0, 0, -255),
+                       multicolor: bool = False,
                        rounding: float = 0.0, thickness: float = 1.0):
         """绘制矩形（支持圆角）"""
         dpg.draw_rectangle(pmin, pmax, color=color, fill=fill,
+                           multicolor=multicolor,
                            rounding=rounding, thickness=thickness, parent=self.canvas_tag)
 
     def draw_polygon(self, points: List[list[float]],
