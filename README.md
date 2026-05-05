@@ -8,9 +8,7 @@
 
 - 🎬 **视频壁纸**：使用 ffplay 播放视频文件作为桌面背景。
 - 🖥️ **EXE 壁纸**：运行任意的可执行程序，并将其主窗口嵌入桌面。
-- 🐍 **Python 脚本壁纸**：支持两种模式的 Python 脚本：
-  - **简单模式**：脚本独立运行，只需提供 `main()` 和 `get_hwnd()`，通过 stdout 传递窗口句柄。
-  - **高级模式**：开发中
+- 🐍 **Python 脚本壁纸**：支持运行 Python 脚本
 - 🧩 **系统托盘控制**：右键托盘图标，轻松切换壁纸、设置开机自启、查看关于信息。
 - 📝 **日志记录**：自动记录运行日志，文件大小超过 256KB 自动轮转。
 - 🔌 **嵌入式桌面**：通过 Windows API 将窗口嵌入 `WorkerW`，真正成为桌面的一部分。
@@ -23,13 +21,10 @@
 - Windows 10/11 (仅支持 Windows)
 
 ### 安装依赖
-```bash
-pip install -r requirements.txt
-```
 主要依赖：
-- `FreeSimpleGUIWx` – 系统托盘界面
+- `ruwps` – 系统托盘界面
 - `pywin32` – Windows API 调用
-- `wxPython` – 高级绘图（用于 Python 脚本壁纸）
+- `dearpygui` – 高级绘图（用于 Python 脚本壁纸）
 
 ### 运行主程序
 ```bash
@@ -55,25 +50,10 @@ DynamicWallpaper/
 
 ## 🐍 编写自定义 Python 壁纸脚本
 
-### 模式一：独立脚本 (`NOT_USE_WX = True`)
-开发中，去掉注释后可用，仅限python环境下
-适用于使用 turtle、tkinter 或其他 GUI 框架的脚本。
-- 脚本顶部必须定义 `NOT_USE_WX = True`
-- 实现 `main()` 函数，负责创建窗口并进入主循环
-- 实现 `get_hwnd()` 函数，返回窗口句柄（`int`）
+在pyenv中加入相应库，默认带有dearpygui
 - 窗口创建后**立即通过 `print` 输出十六进制句柄**（主程序从 stdout 读取）
 
-**示例**：[resources/example2.py](resources/example2.py)
-
-### 模式二：集成脚本 (`NOT_USE_WX = False`)
-适用于与主程序共享 wxPython 事件循环的高性能绘图。
-- 脚本顶部必须定义 `NOT_USE_WX = False`
-- 提供三个全局函数：
-  - `init(target)`：初始化数据，接收 `WallpaperFrame` 实例。
-  - `update(target)`：每帧更新数据，接收 `target`。
-  - `draw(gc, width, height, target)`：使用 `wx.GraphicsContext` 绘制当前帧。
-
-**示例**：[resources/example.py](resources/example.py)（粒子特效）
+**示例**：[resources/example.py](resources/example.py)
 
 ## 🔧 打包成 EXE
 
@@ -82,7 +62,7 @@ DynamicWallpaper/
 pip install cx_freeze
 python setup.py build
 ```
-生成的 exe 位于 `build/exe.win-amd64-3.9/动态壁纸.exe`。
+生成的 exe 位于 `build/wallpaper/动态壁纸.exe`。
 
 ## ⚙️ 配置文件
 程序在 `resources/config.json` 中保存上一次使用的壁纸路径和类型。格式如下：
@@ -99,7 +79,7 @@ python setup.py build
 ## 🙏 致谢
 - [ffmpeg](https://ffmpeg.org/) – 提供 ffplay 播放器
 - [pywin32](https://github.com/mhammond/pywin32) – Windows API 绑定
-- [FreeSimpleGUIWx](https://github.com/spyoungtech/FreeSimpleGUIWx) – 轻量级托盘界面
+- [ruwps](https://github.com/59de44955ebd/ruwps) – 轻量级托盘界面
 - [cx_Freeze](https://cx-freeze.readthedocs.io/) – 打包工具
 
 ## 📄 许可证
