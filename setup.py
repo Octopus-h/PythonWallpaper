@@ -18,9 +18,9 @@ include_files = [
     (pywin32_dll_path, "pywintypes39.dll"),  # 补充缺失的dll
     ("resources/ffmpeg", "resources/ffmpeg"),
     ("resources/icons", "resources/icons"),
-    ("resources/mp4", "resources/mp4"),
     ("resources/example.py", "resources/example.py"),
-    ("resources/LXGWWenKaiLite-Medium.ttc", "resources/LXGWWenKaiLite-Medium.ttc")
+    ("resources/LXGWWenKaiLite-Light.ttf", "resources/LXGWWenKaiLite-Light.ttf"),
+    ("resources/pyenv", "resources/pyenv"),
 ]
 
 # 可执行文件配置
@@ -35,21 +35,17 @@ executables = [
 
 build_exe_options = {
     "include_files": include_files,
-    # 包含必要的模块：FreeSimpleGUIWx, wx, win32等
+    # 包含必要的模块
     "includes": [
-        "kivy",
-        "FreeSimpleGUIWx",
-        "wx",                # wxPython 核心
+        "dearpygui",
+        "ruwps",
         "win32gui", "win32con", "subprocess", "ctypes",
         "json", "logging", "os", "sys", "typing", "functools"
     ],
     # 排除无用模块
     "excludes": [
-        # === wxPython 冗余子模块 ===
-        "wx.media", "wx._media"
-        "wx.html", "wx._html",            # HTML 渲染
         # === pywin32 冗余 ===
-        "pywin", "pywin.dialogs", "pywin.mfc", "win32ui",
+        "pywin", "pywin.dialogs", "pywin.mfc",
         "win32com.gen_py", "win32com.client.makepy", "win32com.client.selecttlb",
         "win32clipboard", "win32pipe", "win32file",
         "win32security", "win32trace",
@@ -61,7 +57,7 @@ build_exe_options = {
         "http", "xml",
         "concurrent",
         # === 未使用的第三方库 ===
-        "PIL", "mulitprocressing", "numpy", "matplotlib", "requests"
+        "PIL","mulitprocressing", "numpy", "matplotlib", "requests"
     ],
     "optimize": 2,
     "zip_include_packages": ["*"],

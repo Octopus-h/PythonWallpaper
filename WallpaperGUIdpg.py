@@ -1,15 +1,18 @@
-from dearpygui import dearpygui as dpg
+import time
 import os
+
+from dearpygui import dearpygui as dpg
+
+from FileEdit import wallpaper_logger
 
 class WallpaperGUI:
     def __init__(self):
         self.window_tag = "about_window"
         self.label_tag = "about_label"
         self.font_tag = "main_chs_font"
-        self.font_path = os.path.join(os.path.dirname(__file__), "resources", "LXGWWenKaiLite-Light.ttf")
-
-        dpg.create_context()
-        self.setup_font()
+        self.commands = []
+        self.flag = False
+        self.font_path = "resources/LXGWWenKaiLite-Light.ttf"
 
     def build_about_text(self):
         return """
@@ -38,6 +41,9 @@ exe版本请到Github项目查看release
 等等......
 
 更新历史：
+2026/5/5-v2.0.5.2：将GUI库换为dearpygui
+                   使用ruwps创建系统托盘
+                   使用嵌入式python启动python脚本
 2026/4/26-v1.0.5.2：更换gui库
 2026/3/27-v1.0.5.2：重写装饰器
                     更换图标
@@ -53,16 +59,17 @@ exe版本请到Github项目查看release
 
     def setup_font(self):
         if not os.path.exists(self.font_path):
-            print("未找到中文字体文件，中文可能无法显示")
+            wallpaper_logger.error("未找到中文字体文件，中文可能无法显示")
             return None
         with dpg.font_registry():
-            self.font = dpg.add_font(self.font_path, 22, tag=self.font_tag)
+            self.font = dpg.add_font(self.font_path, 24, tag=self.font_tag)
             dpg.add_font_range_hint(dpg.mvFontRangeHint_Chinese_Full, parent=self.font)
         if self.font:
             dpg.bind_font(self.font_tag)
 
     def show_about_popup(self):
-
+        dpg.create_context()
+        self.setup_font()
         with dpg.window(label="关于", tag=self.window_tag, autosize=False,
                         show=True, no_collapse=True,
                         no_title_bar=True, no_resize=True, no_move=True):
@@ -80,10 +87,20 @@ exe版本请到Github项目查看release
         dpg.setup_dearpygui()
         dpg.show_viewport()
         dpg.start_dearpygui()
+        dpg.destroy_context()
+
+    def run(self):
+        while not self.flag:
+            if self.commands:
+                cmd = self.commands.pop(0)
+                cmd()
+            time.sleep(0.05)
 
     def stop(self):
-        dpg.destroy_context()
+        self.flag = True
 
 if __name__ == '__main__':
     gui = WallpaperGUI()
-    gui.show_about_popup()
+    gui.commands.append(gui.show_about_popup)
+    gui.commands.append(gui.stop)
+    gui.run()

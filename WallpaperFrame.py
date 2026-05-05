@@ -37,8 +37,6 @@ class WallpaperFrame:
         dpg.set_frame_callback(dpg.get_frame_count() + 1, self._on_frame)
 
         dpg.create_viewport(title=self.viewport_title, width=self.width, height=self.height, decorated=False)
-        dpg.setup_dearpygui()
-        dpg.show_viewport()
 
     def GetHandle(self):
         for _ in range(30):
@@ -88,7 +86,6 @@ class WallpaperFrame:
 
     def Close(self):
         self._running = False
-        dpg.destroy_context()
 
     # ======================== 常用绘图 API 封装 ========================
     def draw_line(self, p1: Tuple[float, float], p2: Tuple[float, float],

@@ -202,33 +202,3 @@ def set_windows_to_workerw(target: Union[str, int, None]):
     except Exception as e:
         wallpaper_logger.exception(f"嵌入窗口到 WorkerW 失败：{e}")
         return -1
-
-
-def run_script_in_process(py_path: str, queue):
-    """在子进程中执行的函数：导入脚本并运行 main()，获取 hwnd 放入队列"""
-    import os
-    import importlib.util
-
-    # 动态导入指定路径的模块
-    module_name = os.path.splitext(os.path.basename(py_path))[0]
-    spec = importlib.util.spec_from_file_location(module_name, py_path)
-    if spec is None:
-        print(f"无法加载脚本: {py_path}")
-        queue.put(-1)
-        return
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module) # type: ignore
-
-    # 获取窗口句柄
-    if hasattr(module, 'get_hwnd') and callable(module.get_hwnd):
-        hwnd = module.get_hwnd()
-        queue.put(int(hwnd)) # type: ignore
-    else:
-        print("脚本未提供 get_hwnd() 函数")
-        queue.put(-1)
-
-    # 运行脚本的 main 函数（如果存在）
-    if hasattr(module, 'main') and callable(module.main):
-        module.main()
-    else:
-        print("脚本未提供 main() 函数")
