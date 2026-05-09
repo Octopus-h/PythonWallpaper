@@ -3,7 +3,7 @@ import os
 
 from dearpygui import dearpygui as dpg
 
-from FileEdit import wallpaper_logger
+from FileEdit import get_shortcut_path, is_autostart_enabled, wallpaper_logger
 
 class WallpaperGUI:
     def __init__(self):
@@ -37,10 +37,12 @@ exe版本请到Github项目查看release
 感谢ffmpeg：https://git.ffmpeg.org/ffmpeg.git
 感谢cx_Freeze：https://cx-freeze.readthedocs.io/
 感谢霞鹜文楷：https://github.com/lxgw/LxgwWenKai-Lite/
-感谢wxPython：https://github.com/wxWidgets/Phoenix/blob/wxPython-4.2.0
+感谢dearpygui：https://github.com/hoffstadt/DearPyGui
 等等......
 
 更新历史：
+2026/5/9-v2.0.5.3：修改了托盘结构
+                   改为使用infi.systray
 2026/5/5-v2.0.5.2：将GUI库换为dearpygui
                    使用ruwps创建系统托盘
                    使用嵌入式python启动python脚本
@@ -56,6 +58,10 @@ exe版本请到Github项目查看release
                   修改WallpaperFrame，采用多线程调用update()，避免阻塞主线程
 2026/2/23-v1.0.4：创建Github项目
         """
+    def on_resize(self):
+        vp_w = dpg.get_viewport_client_width()
+        vp_h = dpg.get_viewport_client_height()
+        dpg.configure_item(self.window_tag, width=vp_w, height=vp_h)
 
     def setup_font(self):
         if not os.path.exists(self.font_path):
@@ -76,14 +82,25 @@ exe版本请到Github项目查看release
             dpg.add_text(self.build_about_text(), tag=self.label_tag, wrap=750)
             dpg.add_button(label="关闭", width=-1, callback=lambda *_: [dpg.configure_item(self.window_tag, show=False), dpg.stop_dearpygui()])
 
-        def on_resize():
-            vp_w = dpg.get_viewport_client_width()
-            vp_h = dpg.get_viewport_client_height()
-            dpg.configure_item(self.window_tag, width=vp_w, height=vp_h)
-
-        dpg.set_viewport_resize_callback(on_resize)
-
+        dpg.set_viewport_resize_callback(self.on_resize)
         dpg.create_viewport(title='about', width=800, height=640, decorated=True)
+        dpg.setup_dearpygui()
+        dpg.show_viewport()
+        dpg.start_dearpygui()
+        dpg.destroy_context()
+
+    def show_setting_popup(self):
+        dpg.create_context()
+        self.setup_font()
+        with dpg.window(label="设置", tag=self.window_tag, autosize=False,
+                        show=True, no_collapse=True,
+                        no_title_bar=True, no_resize=True, no_move=True):
+            dpg.add_text(f"开机自启：{is_autostart_enabled()}，路径：{get_shortcut_path()}", tag=self.label_tag, wrap=750)
+            dpg.add_button(label="关闭", width=-1, callback=lambda *_: [dpg.configure_item(self.window_tag, show=False), dpg.stop_dearpygui()])
+
+        dpg.set_viewport_resize_callback(self.on_resize)
+
+        dpg.create_viewport(title='setting', width=800, height=640, decorated=True)
         dpg.setup_dearpygui()
         dpg.show_viewport()
         dpg.start_dearpygui()

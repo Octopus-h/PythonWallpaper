@@ -77,8 +77,8 @@ def main():
     dpg.create_viewport(title="Particle Demo", width=1280, height=720, decorated=False)
     dpg.setup_dearpygui()
 
-    vp_w = dpg.get_viewport_width()
-    vp_h = dpg.get_viewport_height()
+    vp_w = dpg.get_viewport_client_width()
+    vp_h = dpg.get_viewport_client_height()
 
     with dpg.window(tag="main_window", width=vp_w, height=vp_h,
                     pos=(0, 0),

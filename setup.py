@@ -19,6 +19,7 @@ include_files = [
     ("resources/ffmpeg", "resources/ffmpeg"),
     ("resources/icons", "resources/icons"),
     ("resources/example.py", "resources/example.py"),
+    ("resources/example2.py", "resources/example2.py"),
     ("resources/LXGWWenKaiLite-Light.ttf", "resources/LXGWWenKaiLite-Light.ttf"),
     ("resources/pyenv", "resources/pyenv"),
 ]
@@ -38,7 +39,7 @@ build_exe_options = {
     # 包含必要的模块
     "includes": [
         "dearpygui",
-        "ruwps",
+        "infi.systray",
         "win32gui", "win32con", "subprocess", "ctypes",
         "json", "logging", "os", "sys", "typing", "functools"
     ],

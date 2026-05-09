@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-
 import sys
 import os
 import subprocess
@@ -13,7 +12,7 @@ from functools import wraps
 
 import pythoncom
 import win32ui
-import ruwps
+from infi.systray import SysTrayIcon
 
 from FileEdit import *
 from WallpaperGUIdpg import WallpaperGUI
@@ -264,39 +263,41 @@ class WallpaperProc:
         self.reset()
 
 # ========== 系统托盘管理类 ==========
-class WallpaperTrayApp(ruwps.App):
+class WallpaperTrayIcon:
     def __init__(self, wallproc: WallpaperProc, gui_app: WallpaperGUI):
-        # 设置托盘图标和标题
-        icon_path = os.path.join(get_app_root_path(), "resources", "icons", "icon.ico")
-        if not os.path.exists(icon_path):
-            icon_path = None   # 或用默认
-
-        super().__init__("动态壁纸", icon=icon_path, quit_button=None) # type: ignore
         self.wallproc = wallproc
         self.gui_app = gui_app
         self.autostart_enabled = is_autostart_enabled()
 
+        # 定义菜单项
+        self.menu_options = self.update_menu()
+
+        icon_path = os.path.join(get_app_root_path(), "resources", "icons", "icon.ico")
+        # 创建 SysTrayIcon 实例，on_quit 用于退出时清理
+        self._systray = SysTrayIcon(icon_path, "动态壁纸", self.menu_options)
+
+    def update_menu(self):
+        return (
+            (self._autostart_text(), None, self.toggle_autostart),
+            ("切换壁纸", None, (
+                ("切换壁纸(.exe文件)", None, self.select_exe),
+                ("切换壁纸(视频文件)", None, self.select_video),
+                ("切换壁纸(.py文件)", None, self.select_py),
+            )),
+            ("杂项", None, (
+                ("关于", None, self.about),
+                ("设置", None, self.settings),
+            )),
+            ("退出程序", None, self.exit),
+        )
+
     def _autostart_text(self):
         return "开机自启 ✓" if self.autostart_enabled else "开机自启"
 
-    def update_menu(self):
-        """根据状态重建菜单（ruwps支持！）"""
-        # 动态菜单结构
-        self.menu = [
-            ruwps.MenuItem(self._autostart_text(), callback=self.toggle_autostart),
-            ruwps.MenuItem("切换壁纸(.exe文件)", self.select_exe),
-            ruwps.MenuItem("切换壁纸(视频文件)", self.select_video),
-            ruwps.MenuItem("切换壁纸(.py文件)", self.select_py),
-            ruwps.MenuItem("关于", self.about),
-            ruwps.MenuItem("设置", self.settings),
-            ruwps.MenuItem("退出程序", self.exit)
-        ]
-
     def run(self):
-        self.update_menu()  # 初始化菜单
-        super().run()
+        self._systray.start()
+        self.gui_app.run()
 
-    @ruwps.clicked("切换壁纸(视频文件)")
     def select_video(self, sender):
         default_dir = os.path.join(get_app_root_path(), "resources", "mp4")
         if not os.path.exists(default_dir):
@@ -311,7 +312,6 @@ class WallpaperTrayApp(ruwps.App):
             save_wallpaper_path(file_path, "video")
             wallpaper_logger.info(f"壁纸已切换：{file_path}")
 
-    @ruwps.clicked("切换壁纸(.exe文件)")
     def select_exe(self, sender):
         default_dir = os.path.join(get_app_root_path(), "resources")
         if not os.path.exists(default_dir):
@@ -326,7 +326,6 @@ class WallpaperTrayApp(ruwps.App):
             save_wallpaper_path(file_path, "exe")
             wallpaper_logger.info(f"壁纸已切换：{file_path}")
 
-    @ruwps.clicked("切换壁纸(.py文件)")
     def select_py(self, sender):
         default_dir = os.path.join(get_app_root_path(), "resources")
         if not os.path.exists(default_dir):
@@ -341,20 +340,16 @@ class WallpaperTrayApp(ruwps.App):
             save_wallpaper_path(file_path, "py")
             wallpaper_logger.info(f"壁纸已切换：{file_path}")
 
-    @ruwps.clicked("关于")
     def about(self, sender):
-        self.gui_app.show_about_popup()
+        self.gui_app.commands.append(self.gui_app.show_about_popup)
 
-    @ruwps.clicked("设置")
     def settings(self, sender):
-        wallpaper_logger.info("设置未实现")
+        self.gui_app.commands.append(self.gui_app.show_setting_popup)
 
-    @ruwps.clicked("退出程序")
     def exit(self, sender):
         wallpaper_logger.info("用户触发退出程序")
         self.wallproc.stop()
         self.gui_app.stop()
-        self.quit()   # ruwps 提供的退出方法
 
     def toggle_autostart(self, sender):
         new_state = not self.autostart_enabled
@@ -362,7 +357,6 @@ class WallpaperTrayApp(ruwps.App):
             set_autostart(new_state)
             self.autostart_enabled = new_state
             # 同步菜单项文本和状态
-            self.update_menu()
             wallpaper_logger.info(f"开机自启已{'启用' if new_state else '禁用'}")
         except Exception as e:
             wallpaper_logger.exception("设置开机自启失败")
@@ -401,12 +395,13 @@ def main():
         wallpaper_path, wallpaper_type = load_wallpaper_path()
 
         # 创建并运行系统托盘
-        tray_manager = WallpaperTrayApp(wallproc, app)
+        tray_manager = WallpaperTrayIcon(wallproc, app)
 
         # 启动壁纸
         wallproc.embed_to_workerw(wallproc.start(wallpaper_type, wallpaper_path))
 
         tray_manager.run()
+        tray_manager._systray.shutdown()
 
     except KeyboardInterrupt:
         wallpaper_logger.info("用户通过键盘中断退出")
