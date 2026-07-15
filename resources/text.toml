@@ -1,0 +1,48 @@
+other = """
+关闭
+"""
+
+about = """
+动态壁纸程序-nim
+版本 1.0.5.2
+作者：Octopus-h
+基于 raylib 和 winim
+这个是用nim重构的项目
+Github项目地址：https://github.com/Octopus-h/PythonWallpaper
+
+ffplay来自：
+https://github.com/Octopus-h/ffplay-minimal-build
+
+如果出现默认壁纸，可能是：exe未返回HWND，你的壁纸路径改变，等等
+如果有疑问，请找到程序目录下的lastlog.log，或许可以帮到你
+exe版本请到Github项目查看release
+更新时请记得复制resources下的配置文件(其实目前并不重要)
+
+致谢：
+感谢所有使用和支持本软件的朋友。
+感谢ffmpeg：https://git.ffmpeg.org/ffmpeg.git
+感谢霞鹜文楷：https://github.com/lxgw/LxgwWenKai-Lite/
+感谢naylib：https://github.com/planetis-m/naylib
+感谢naygui：https://github.com/planetis-m/naygui
+等等......
+
+更新历史：
+2026/5/9-v2.1.5.3：使用nim重构了项目，应该会运行的更快
+                   python版本也许还会更新
+2026/5/9-v2.0.5.3：修改了托盘结构
+                   改为使用infi.systray
+2026/5/5-v2.0.5.2：将GUI库换为dearpygui
+                   使用ruwps创建系统托盘
+                   使用嵌入式python启动python脚本
+2026/4/26-v1.0.5.2：更换gui库
+2026/3/27-v1.0.5.2：重写装饰器
+                    更换图标
+2026/3/6-v1.0.5.2：修正自启时无法加载.py脚本
+2026/2/25-v1.0.5.1：修正exe无法导入的bug(由python打包的exe启动过慢也可能失败)
+2026/2/24-v1.0.5：添加更新历史
+                  更正了版本号
+                  添加托盘选项 杂项 设置 (然而并未想好设置应包含什么)
+                  使关于的窗口更大，字体更大
+                  修改WallpaperFrame，采用多线程调用update()，避免阻塞主线程
+2026/2/23-v1.0.4：创建Github项目
+"""

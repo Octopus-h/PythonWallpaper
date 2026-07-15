@@ -12,7 +12,7 @@ from functools import wraps
 
 import pythoncom
 import win32ui
-from infi.systray import SysTrayIcon
+from lightpytray import LightPyTray
 
 from FileEdit import *
 from WallpaperGUIdpg import WallpaperGUI
@@ -270,35 +270,28 @@ class WallpaperTrayIcon:
         self.autostart_enabled = is_autostart_enabled()
 
         # 定义菜单项
-        self.menu_options = self.update_menu()
+        self.menu_options = [
+            ("开机自启",self.toggle_autostart),
+            ("切换壁纸", [
+                ("切换壁纸(.exe文件)", self.select_exe),
+                ("切换壁纸(视频文件)", self.select_video),
+                ("切换壁纸(.py文件)", self.select_py),
+            ]),
+            ("杂项", [
+                ("关于", self.about),
+                ("设置", self.settings),
+            ]),
+            ("退出程序", self.exit),]
 
         icon_path = os.path.join(get_app_root_path(), "resources", "icons", "icon.ico")
-        # 创建 SysTrayIcon 实例，on_quit 用于退出时清理
-        self._systray = SysTrayIcon(icon_path, "动态壁纸", self.menu_options)
-
-    def update_menu(self):
-        return (
-            (self._autostart_text(), None, self.toggle_autostart),
-            ("切换壁纸", None, (
-                ("切换壁纸(.exe文件)", None, self.select_exe),
-                ("切换壁纸(视频文件)", None, self.select_video),
-                ("切换壁纸(.py文件)", None, self.select_py),
-            )),
-            ("杂项", None, (
-                ("关于", None, self.about),
-                ("设置", None, self.settings),
-            )),
-            ("退出程序", None, self.exit),
-        )
-
-    def _autostart_text(self):
-        return "开机自启 ✓" if self.autostart_enabled else "开机自启"
+        # 创建实例
+        self._systray = LightPyTray(icon_path, "动态壁纸", self.menu_options, quit_button=(None, None))
 
     def run(self):
         self._systray.start()
         self.gui_app.run()
 
-    def select_video(self, sender):
+    def select_video(self):
         default_dir = os.path.join(get_app_root_path(), "resources", "mp4")
         if not os.path.exists(default_dir):
             default_dir = os.path.expanduser("~")
@@ -312,7 +305,7 @@ class WallpaperTrayIcon:
             save_wallpaper_path(file_path, "video")
             wallpaper_logger.info(f"壁纸已切换：{file_path}")
 
-    def select_exe(self, sender):
+    def select_exe(self):
         default_dir = os.path.join(get_app_root_path(), "resources")
         if not os.path.exists(default_dir):
             default_dir = os.path.expanduser("~")
@@ -326,7 +319,7 @@ class WallpaperTrayIcon:
             save_wallpaper_path(file_path, "exe")
             wallpaper_logger.info(f"壁纸已切换：{file_path}")
 
-    def select_py(self, sender):
+    def select_py(self):
         default_dir = os.path.join(get_app_root_path(), "resources")
         if not os.path.exists(default_dir):
             default_dir = os.path.expanduser("~")
@@ -340,24 +333,25 @@ class WallpaperTrayIcon:
             save_wallpaper_path(file_path, "py")
             wallpaper_logger.info(f"壁纸已切换：{file_path}")
 
-    def about(self, sender):
+    def about(self):
         self.gui_app.commands.append(self.gui_app.show_about_popup)
 
-    def settings(self, sender):
+    def settings(self):
         self.gui_app.commands.append(self.gui_app.show_setting_popup)
 
-    def exit(self, sender):
+    def exit(self):
         wallpaper_logger.info("用户触发退出程序")
         self.wallproc.stop()
         self.gui_app.stop()
 
-    def toggle_autostart(self, sender):
+    def toggle_autostart(self):
         new_state = not self.autostart_enabled
         try:
             set_autostart(new_state)
             self.autostart_enabled = new_state
             # 同步菜单项文本和状态
             wallpaper_logger.info(f"开机自启已{'启用' if new_state else '禁用'}")
+            self._systray.set_menu_item_state("开机自启", checked=self.autostart_enabled)
         except Exception as e:
             wallpaper_logger.exception("设置开机自启失败")
 
@@ -401,7 +395,7 @@ def main():
         wallproc.embed_to_workerw(wallproc.start(wallpaper_type, wallpaper_path))
 
         tray_manager.run()
-        tray_manager._systray.shutdown()
+        tray_manager._systray.stop()
 
     except KeyboardInterrupt:
         wallpaper_logger.info("用户通过键盘中断退出")
