@@ -1,15 +1,22 @@
-import std/[os, strutils, osproc, streams, logging, json, unicode]
-import winim/lean
-import winim/winstr
+import std/[os, strutils, osproc, streams, json, unicode, atomics]
+import winim/[lean,winstr]
+import morelogging
+import winim/inc/[winuser, windef]
 import nimtray
 import times
 import tinydialogs, parsetoml
 import raylib, raygui
 
+from std/logging import lvlAll
+
 # 常量定义
 const
+    WS_EX_NOREDIRECTIONBITMAP = 0x00200000'i32
+    WS_EX_LAYERED = 0x00080000'i32
     SPI_SETDESKWALLPAPER = 0x0014
     SPIF_SENDCHANGE = 0x0002
+    RI_MOUSE_HWHEEL = 0x0800
+    MOVE_LIMIT_MS = 30   # 每 30 毫秒最多转发一次移动消息
     config_file = "resources/config.json"
     ffplay_path = "resources/ffmpeg/ffplay.exe"
     py_env_path = "resources/pyenv/pythonw.exe"
@@ -35,8 +42,175 @@ var
     file_path: string
     infoText: string
     auto_start_id: uint32
+    lastMoveTime: int64 = 0
+    # 使用原子操作保护跨线程访问
+    wallpaperHwnd*: Atomic[HWND]        # 壁纸窗口句柄，原子访问
+    hookThreadRunning: Atomic[bool] # 转发线程运行标志
+    hookThreadHandle: HANDLE        # 转发线程
+    globalLogger: morelogging.ThreadFileLogger
+    mouseHook: HHOOK
+    keyboardHook: HHOOK
 
 #====================辅助函数====================
+# 确保单例运行
+proc preventMultipleInstances(appName: string): bool =
+    ## 返回 true 表示是第一个实例，false 表示已有实例
+    let mutexName = newWideCString("Global\\" & appName)
+    let hMutex = CreateMutexW(nil, FALSE, mutexName)
+    if hMutex == 0:
+        # 创建失败（权限不足等），保守起见允许运行
+        return true
+    if GetLastError() == ERROR_ALREADY_EXISTS:
+        # 已有实例在运行
+        CloseHandle(hMutex)
+        return false
+    # 第一个实例，互斥体句柄保持打开（程序退出时自动释放）
+    # 注意：如果程序需要优雅退出，可以存储在全局变量中并在退出前手动 CloseHandle
+    return true
+
+# 鼠标事件转发
+proc forwardMouseEvent(wParam: WPARAM, lParam: LPARAM, targetHwnd: HWND) =
+    let info = cast[ptr MSLLHOOKSTRUCT](lParam)
+    var pt = info.pt
+
+    # ===== 限流：仅对 WM_MOUSEMOVE 做限流 =====
+    if wParam in [WM_MOUSEMOVE, WM_MOUSEWHEEL, WM_MOUSEHWHEEL]:
+        let now = GetTickCount64()
+        if now - lastMoveTime < MOVE_LIMIT_MS:
+            return          # 跳过本次移动，不转发
+        lastMoveTime = now
+
+    # 转换为客户区坐标
+    discard MapWindowPoints(HWND_DESKTOP, targetHwnd, addr pt, 1)
+    let lParamMsg = (pt.y shl 16) or (pt.x and 0xFFFF)
+
+    # 发送鼠标移动消息（更新位置）
+    discard PostMessageW(targetHwnd, WM_MOUSEMOVE, 0.WPARAM, lParamMsg.LPARAM)
+    # 根据 wParam 决定具体消息
+    var msgId: UINT = 0
+    var wParamMsg: WPARAM = 0
+    case wParam
+    of WM_LBUTTONDOWN: msgId = WM_LBUTTONDOWN
+    of WM_LBUTTONUP:   msgId = WM_LBUTTONUP
+    of WM_RBUTTONDOWN: msgId = WM_RBUTTONDOWN
+    of WM_RBUTTONUP:   msgId = WM_RBUTTONUP
+    of WM_MBUTTONDOWN: msgId = WM_MBUTTONDOWN
+    of WM_MBUTTONUP:   msgId = WM_MBUTTONUP
+    of WM_MOUSEWHEEL:
+        msgId = WM_MOUSEWHEEL
+        wParamMsg = cast[WPARAM]((info.mouseData shl 16) and 0xFFFF0000)  # 滚轮数据在高字
+    of WM_MOUSEHWHEEL:
+        msgId = WM_MOUSEHWHEEL
+        wParamMsg = cast[WPARAM]((info.mouseData shl 16) and 0xFFFF0000)
+    else: discard
+    if msgId != 0:
+        discard PostMessageW(targetHwnd, msgId, wParamMsg, lParamMsg.LPARAM)
+
+# 键盘事件转发
+proc forwardKeyboardEvent(wParam: WPARAM, lParam: LPARAM, targetHwnd: HWND) =
+    let info = cast[ptr KBDLLHOOKSTRUCT](lParam)
+    let vkCode = info.vkCode
+    let scanCode = info.scanCode
+    let isDown = (wParam == WM_KEYDOWN) or (wParam == WM_SYSKEYDOWN)
+    let msgId = if isDown: WM_KEYDOWN else: WM_KEYUP
+    # 构造 lParam（与 RawInput 转发类似）
+    var lParamMsg: LPARAM = 0
+    lParamMsg = lParamMsg or cast[LPARAM](1)                    # 重复计数
+    lParamMsg = lParamMsg or (cast[LPARAM](scanCode) shl 16)   # 扫描码
+    if (info.flags and LLKHF_EXTENDED) != 0:
+        lParamMsg = lParamMsg or (cast[LPARAM](1) shl 24)      # 扩展键
+    if GetKeyState(VK_MENU) < 0:
+        lParamMsg = lParamMsg or (cast[LPARAM](1) shl 29)      # Alt 上下文
+    if not isDown:
+        lParamMsg = lParamMsg or (cast[LPARAM](1) shl 30)      # 前一个键状态
+        lParamMsg = lParamMsg or (cast[LPARAM](1) shl 31)      # 转换状态
+    discard PostMessageW(targetHwnd, cast[UINT](msgId), cast[WPARAM](vkCode), lParamMsg)
+
+# 低级钩子回调函数
+proc lowLevelMouseProc(nCode: int32, wParam: WPARAM, lParam: LPARAM): LRESULT {.stdcall.} =
+    if nCode >= 0:
+        let target = wallpaperHwnd.load()
+        if target != 0 and IsWindow(target) != 0:
+            forwardMouseEvent(wParam, lParam, target)
+    # 必须调用链中下一个钩子
+    return CallNextHookEx(mouseHook, nCode, wParam, lParam)
+
+# 低级钩子回调函数
+proc lowLevelKeyboardProc(nCode: int32, wParam: WPARAM, lParam: LPARAM): LRESULT {.stdcall.} =
+    if nCode >= 0:
+        let target = wallpaperHwnd.load()
+        if target != 0 and IsWindow(target) != 0:
+            forwardKeyboardEvent(wParam, lParam, target)
+    return CallNextHookEx(keyboardHook, nCode, wParam, lParam)
+
+# 工作线程主函数
+proc hookThreadProc(param: pointer): DWORD {.stdcall.} =
+    let hInst = GetModuleHandleW(nil)
+
+    # 安装鼠标钩子
+    mouseHook = SetWindowsHookExW(WH_MOUSE_LL, lowLevelMouseProc, hInst, 0)
+    if mouseHook == 0:
+        globalLogger.error "SetWindowsHookEx(WH_MOUSE_LL) 失败，错误码: ", GetLastError()
+        return 1
+    # 安装键盘钩子
+    keyboardHook = SetWindowsHookExW(WH_KEYBOARD_LL, lowLevelKeyboardProc, hInst, 0)
+    if keyboardHook == 0:
+        globalLogger.error "SetWindowsHookEx(WH_KEYBOARD_LL) 失败，错误码: ", GetLastError()
+        UnhookWindowsHookEx(mouseHook)
+        return 1
+
+    globalLogger.info "低级钩子安装成功，线程启动"
+    hookThreadRunning.store(true)
+
+    # 消息循环（钩子需要消息泵）
+    var msg: MSG
+    while hookThreadRunning.load():
+        # 阻塞等待消息或超时（可设置超时以检查退出标志）
+        let ret = MsgWaitForMultipleObjects(0, nil, FALSE, 10, QS_ALLINPUT)
+        if ret == WAIT_OBJECT_0:   # 有消息
+            while PeekMessageW(addr msg, 0, 0, 0, PM_REMOVE) != 0:
+                if msg.message == WM_QUIT:
+                    break
+                TranslateMessage(addr msg)
+                DispatchMessageW(addr msg)
+        elif ret == WAIT_TIMEOUT:
+            # 超时后检查退出标志，或执行其他任务
+            continue
+
+    # 清理
+    UnhookWindowsHookEx(mouseHook)
+    UnhookWindowsHookEx(keyboardHook)
+    mouseHook = 0
+    keyboardHook = 0
+    globalLogger.info "钩子线程退出"
+    return 0
+
+# 对外启动/停止接口
+proc startInputThread*(targetHwnd: HWND): bool =
+    wallpaperHwnd.store(targetHwnd)
+    # 检查现有线程
+    if hookThreadHandle != 0:
+        if WaitForSingleObject(hookThreadHandle, 0) == WAIT_OBJECT_0:
+            CloseHandle(hookThreadHandle)
+            hookThreadHandle = 0
+    if hookThreadHandle == 0:
+        hookThreadRunning.store(false)
+        let hThread = CreateThread(nil, 0, cast[LPTHREAD_START_ROUTINE](hookThreadProc), nil, 0, nil)
+        if hThread == 0:
+            globalLogger.error "启动钩子线程失败，错误码: ", GetLastError()
+            return false
+        hookThreadHandle = hThread
+    return true
+# 对外启动/停止接口
+proc stopInputThread*() =
+    hookThreadRunning.store(false)
+    if hookThreadHandle != 0:
+        if WaitForSingleObject(hookThreadHandle, 2000) == WAIT_TIMEOUT:
+            globalLogger.warn "钩子线程未及时退出，强制终止"
+            TerminateThread(hookThreadHandle, 0)
+        CloseHandle(hookThreadHandle)
+        hookThreadHandle = 0
+
 # 在 JSON 对象中按路径设置值（若路径不存在则自动创建中间对象）
 proc setJsonValue(root: var JsonNode, path: seq[string], value: JsonNode) =
     if path.len == 0: return
@@ -91,10 +265,10 @@ proc selectFile(file_type: string, file_extension: string): string =
         singleFilterDescription = file_type
     )
     if results.len > 0:
-        info "选择的文件是: ", results
+        globalLogger.info "选择的文件是: ", results
         return results
     else:
-        info "用户取消了选择"
+        globalLogger.info "用户取消了选择"
         return ""   # 返回空字符串表示取消
 
 proc getWorkerw(): HWND =
@@ -105,7 +279,7 @@ proc getWorkerw(): HWND =
 
     let progman = FindWindowW(L"Progman", nil)
     if progman == 0:
-        error "[Error] 未找到 Progman 窗口"
+        globalLogger.error "[Error] 未找到 Progman 窗口"
         return 0
 
     # 触发 WorkerW 创建（可选，但保留以兼容部分系统）
@@ -139,59 +313,106 @@ proc getWorkerw(): HWND =
     EnumWindows(enumProc, cast[LPARAM](addr found))
 
     if found == 0:
-        warn "[Warning] 未找到父窗口为 Progman 的 WorkerW"
+        globalLogger.warn "[Warning] 未找到父窗口为 Progman 的 WorkerW"
     else:
-        info "[Info] 找到 WorkerW: 0x", toHex(cast[int](found), 8)
+        globalLogger.info "[Info] 找到 WorkerW: 0x", toHex(cast[int](found), 8)
 
     return found
 
-# 将指定窗口嵌入桌面底层（WorkerW）
+# 将指定窗口嵌入桌面底层
 proc setWindowsToWorkerw(hwnd: HWND): bool =
     ## 将窗口句柄对应的窗口嵌入 WorkerW，作为桌面壁纸层。
     ## 成功返回 true，失败返回 false。
     when not defined(windows):
-        error "[Error] setWindowsToWorkerw 仅在 Windows 下有效"
+        globalLogger.error "[Error] setWindowsToWorkerw 仅在 Windows 下有效"
         return false
+
+    # 获取 Progman 窗口
+    let progman = FindWindowW(L"Progman", nil)
+    if progman == 0:
+        globalLogger.error "[Error] 未找到 Progman 窗口"
+        return false
+
+    # 检测是否为 Windows 11 24H2 新模式（Raised Desktop with Layered Shell View）
+    let desktop_ex_style = GetWindowLongW(progman, GWL_EXSTYLE)
+    let isRaisedDesktop = (desktop_ex_style and WS_EX_NOREDIRECTIONBITMAP) != 0
 
     # 验证窗口句柄
     if hwnd == 0 or IsWindow(hwnd) == 0:
-        error "[Error] 无效窗口句柄: 0x", toHex(hwnd, 8)
+        globalLogger.error "[Error] 无效窗口句柄: 0x", toHex(hwnd, 8)
         return false
 
     # 获取 WorkerW
     let workerw = getWorkerw()
-    if workerw == 0:
-        return false
 
-    # 1. 将窗口父级设为 WorkerW
-    if SetParent(hwnd, workerw) == 0:
-        error "[Error] SetParent 失败"
-        return false
+    if isRaisedDesktop:
+        # ---- 新模式：直接嵌入 Progman 并调整 Z 序 ----
+        globalLogger.info "[Info] 检测到 Windows 11 24H2 新模式，使用适配嵌入"
+        # 获取 SHELLDLL_DefView（桌面图标容器）
+        let shellDLL_DefView = FindWindowExW(progman, 0, L"SHELLDLL_DefView", nil)
+        if shellDLL_DefView == 0:
+            globalLogger.error "[Error] 未找到 SHELLDLL_DefView"
+            return false
 
-    # 2. 修改窗口样式：加上 WS_CHILD 和 WS_VISIBLE
+        if workerw != 0:
+            globalLogger.info "[Info] 找到 WorkerW 子窗口，将置于底层"
+
+        # 设置扩展样式：WS_EX_LAYERED（用于透明背景）
+        var exStyleNew = GetWindowLongW(hwnd, GWL_EXSTYLE)
+        exStyleNew = exStyleNew or WS_EX_LAYERED
+
+        # 设置图层透明度（255 表示完全不透明，但 WS_EX_LAYERED 允许透明画刷）
+        if SetLayeredWindowAttributes(hwnd, 0, 255, LWA_ALPHA) == 0:
+            globalLogger.warn "[Warning] SetLayeredWindowAttributes 失败，但可能不影响"
+
+        # 将父窗口设为 Progman
+        if SetParent(hwnd, progman) == 0:
+            globalLogger.error "[Error] SetParent 到 Progman 失败"
+            return false
+
+        # 调整 Z 序：置于 SHELLDLL_DefView 之下
+        if SetWindowPos(hwnd, shellDLL_DefView, 0, 0, 0, 0,
+                        SWP_NOMOVE or SWP_NOSIZE or SWP_NOACTIVATE) == 0:
+            globalLogger.warn "[Warning] 设置 Z 序失败"
+
+        # 确保 WorkerW 在最底层（可选，有助于兼容）
+        if workerw != 0:
+            SetWindowPos(workerw, HWND_BOTTOM, 0, 0, 0, 0,
+                        SWP_NOMOVE or SWP_NOSIZE or SWP_NOACTIVATE)
+
+    else:
+        if workerw == 0:
+            return false
+
+        # 将窗口父级设为 WorkerW
+        if SetParent(hwnd, workerw) == 0:
+            globalLogger.error "[Error] SetParent 失败"
+            return false
+
+    # 修改窗口样式：加上 WS_CHILD 和 WS_VISIBLE
     var style = GetWindowLongW(hwnd, GWL_STYLE)
     style = style or WS_CHILD or WS_VISIBLE
     if SetWindowLongW(hwnd, GWL_STYLE, style) == 0:
-        warn "[Warning] 设置窗口样式可能失败"
+        globalLogger.warn "[Warning] 设置窗口样式可能失败"
 
-    # 3. 移除窗口边框和标题栏（扩展样式）
+    # 移除窗口边框和标题栏（扩展样式）
     var exStyle = GetWindowLongW(hwnd, GWL_EXSTYLE)
     exStyle = exStyle and not (WS_EX_DLGMODALFRAME or WS_EX_WINDOWEDGE)
     if SetWindowLongW(hwnd, GWL_EXSTYLE, exStyle) == 0:
-        warn "[Warning] 设置扩展样式可能失败"
+        globalLogger.warn "[Warning] 设置扩展样式可能失败"
 
-    # 4. 获取屏幕尺寸并调整窗口位置
+    # 获取屏幕尺寸并调整窗口位置
     let screenW = GetSystemMetrics(SM_CXSCREEN)
     let screenH = GetSystemMetrics(SM_CYSCREEN)
     if SetWindowPos(hwnd, 0, 0, 0, screenW, screenH,
                     SWP_NOZORDER or SWP_FRAMECHANGED) == 0:
-        error "[Error] SetWindowPos 失败"
+        globalLogger.error "[Error] SetWindowPos 失败"
         return false
 
-    # 5. 确保窗口可见
+    # 确保窗口可见
     ShowWindow(hwnd, SW_SHOW)
 
-    info "[Success] 窗口 0x", toHex(hwnd, 8), " 已嵌入 WorkerW，尺寸：", screenW, "x", screenH
+    globalLogger.info "[Success] 窗口 0x", toHex(hwnd, 8), " 已嵌入，尺寸：", screenW, "x", screenH
     return true
 
 proc embedToWorkerw(target: HWND): HWND =
@@ -202,12 +423,12 @@ proc embedToWorkerw(target: HWND): HWND =
     for attempt in 0..20:
         let results = setWindowsToWorkerw(target)
         if results:
-            info "[Info] 窗口已通过标题嵌入桌面 WorkerW"
+            globalLogger.info "[Info] 窗口已通过标题嵌入桌面 WorkerW"
             return target
         else:
-            warn "[Warning] 第 ", attempt+1, " 次找到窗口但嵌入失败，稍后重试..."
+            globalLogger.warn "[Warning] 第 ", attempt+1, " 次找到窗口但嵌入失败，稍后重试..."
         sleep(50)  # 0.05 秒
-    error "[Error] 通过标题查找并嵌入失败"
+    globalLogger.error "[Error] 通过标题查找并嵌入失败"
     return 0
 
 proc getFirstLine(currentProcess: Process, timeoutMs: int = 3000): string =
@@ -218,7 +439,7 @@ proc getFirstLine(currentProcess: Process, timeoutMs: int = 3000): string =
             let results = currentProcess.outputStream.readLine()
             return results
         except Exception as e:
-            error "读取输出异常: ", e.msg
+            globalLogger.error "读取输出异常: ", e.msg
 
         sleep(50)
     return ""
@@ -232,7 +453,7 @@ proc changeWallpaper(path_casual: string, types_casual: string) =
         hwnd: HWND
 
     if fileExists(path) == false:
-        warn "文件不存在，path:", path, "types:", types
+        globalLogger.warn "文件不存在，path:", path, "types:", types
         path = "resources/example.py"
         types = "py"
 
@@ -264,15 +485,15 @@ proc changeWallpaper(path_casual: string, types_casual: string) =
             "resources/example.py"
         ]
 
-    info "创建新currentProcess, path:", run_app_path, " args:", args.join(" ")
+    globalLogger.info "创建新currentProcess, path:", run_app_path, " args:", args.join(" ")
     if currentProcess != nil and currentProcess.running:
         currentProcess.terminate()
-        info "等待旧进程退出..."
+        globalLogger.info "等待旧进程退出..."
         let start = times.getTime()
         while currentProcess.running and (times.getTime() - start).inMilliseconds < 3000:
             sleep(50)
         if currentProcess.running:
-            warn "旧进程未响应，强制终止"
+            globalLogger.warn "旧进程未响应，强制终止"
             currentProcess.kill()
         currentProcess.close()
     currentProcess = startProcess(
@@ -280,10 +501,10 @@ proc changeWallpaper(path_casual: string, types_casual: string) =
         args = args,
         options = {poUsePath, poDaemon, poStdErrToStdOut}
     )
-    info "创建新currentProcess成功, path:", run_app_path, " args:", args.join(" ")
+    globalLogger.info "创建新currentProcess成功, path:", run_app_path, " args:", args.join(" ")
 
     case types
-    of "py", "exe":
+    of "py":
         let text = getFirstLine(currentProcess)
         if text != "":
             try:
@@ -292,8 +513,22 @@ proc changeWallpaper(path_casual: string, types_casual: string) =
                 hwnd = 0
         else:
             hwnd = 0
+    of "exe":
+        # 优先通过窗口标题查找 HWND
+        let baseName = extractFilename(path)
+        let nameWithoutExt = baseName.splitFile().name  # 获取不带扩展名的部分
+        hwnd = FindWindowW(nil, L(nameWithoutExt))
+        if hwnd == 0:
+            let text = getFirstLine(currentProcess)
+            if text != "":
+                try:
+                    hwnd = cast[int](parseHexInt(text))
+                except:
+                    hwnd = 0
+            else:
+                hwnd = 0
     of "video":
-        info L("FFPLAY_WALLPAPER_" & extractFilename(path))
+        globalLogger.info L("FFPLAY_WALLPAPER_" & extractFilename(path))
         let start = times.getTime()
         while (times.getTime() - start).inMilliseconds < 3000:
             sleep(50)
@@ -303,6 +538,9 @@ proc changeWallpaper(path_casual: string, types_casual: string) =
 
     hwnd = embedToWorkerw(hwnd)
 
+    if hwnd != 0:
+        discard startInputThread(hwnd)
+
 proc loadLastWallpaper() =
     if fileExists(config_file):
         try:
@@ -310,18 +548,18 @@ proc loadLastWallpaper() =
             let path = json["last_wallpaper_path"].getStr("")
             let typ = json["type"].getStr("")
             if path != "" and typ != "":
-                info "恢复上次壁纸: ", path, " 类型: ", typ
+                globalLogger.info "恢复上次壁纸: ", path, " 类型: ", typ
                 changeWallpaper(path, typ)
             else:
-                info "配置文件缺少必要字段，跳过恢复"
+                globalLogger.info "配置文件缺少必要字段，跳过恢复"
                 changeWallpaper("resources/example.py", "py")
                 discard updateJson(config_file, "last_wallpaper_path", "resources/example.py")
                 discard updateJson(config_file, "type", "py")
         except:
-            warn "读取配置文件失败，跳过恢复"
+            globalLogger.warn "读取配置文件失败，跳过恢复"
             changeWallpaper("resources/example.py", "py")
     else:
-        warn "配置文件不存在，跳过恢复"
+        globalLogger.warn "配置文件不存在，跳过恢复"
         changeWallpaper("resources/example.py", "py")
         discard updateJson(config_file, "last_wallpaper_path", "resources/example.py")
         discard updateJson(config_file, "type", "py")
@@ -339,7 +577,7 @@ proc setAutoStart(enable: bool) =
             discard RegDeleteValueW(hKey, newWideCString(app_registry_name))
             RegCloseKey(hKey)
     else:
-        warn "无法打开注册表键"
+        globalLogger.warn "无法打开注册表键"
 
 proc isAutoStartEnabled(): bool =
     var hKey: HKEY
@@ -358,10 +596,10 @@ proc initFont() =
         # 从 info.txt 读取文字
         if fileExists(info_text_path):
             try:
-                info "文字读取成功"
+                globalLogger.info "文字读取成功"
                 infoText = readFile(info_text_path).strip()
             except:
-                warn "文字读取失败"
+                globalLogger.warn "文字读取失败"
 
         var codepoints: seq[int32]
         # 提取所有文本中的 Unicode 码位
@@ -378,7 +616,7 @@ proc initFont() =
         # 加载字体
         font = loadFont(font_path, 30, codepoints)
         if font.baseSize == 0:
-            error "字体加载失败，使用默认字体"
+            globalLogger.error "字体加载失败，使用默认字体"
             font = getFontDefault()
 
         guiSetFont(font)
@@ -392,10 +630,10 @@ proc aboutApp() =
             let toml = parsetoml.parseFile(info_text_path)
             aboutText = toml["about"].getStr("default text")
         except:
-            warn "读取 TOML 文件失败，使用默认文本"
+            globalLogger.warn "读取 TOML 文件失败，使用默认文本"
             aboutText = "默认关于文本"
     else:
-        warn "TOML 配置文件不存在，使用默认文本"
+        globalLogger.warn "TOML 配置文件不存在，使用默认文本"
         aboutText = "默认关于文本"
 
     # ---------- 准备文本行和尺寸 ----------
@@ -534,27 +772,25 @@ proc onExit() =
 #===============================================
 
 proc initLogging() =
-    # 创建控制台日志处理器（输出到 stdout）
-    let consoleLogger = newConsoleLogger(
-        levelThreshold = lvlAll,
-        fmtStr = verboseFmtStr
+    # 启动时轮转日志
+    let logFile = "lastlog.log"
+    if fileExists(logFile):
+        let fileSize = getFileSize(logFile)
+        if fileSize > 256 * 1024:
+            # 备份当前日志
+            let backupFile = logFile & ".baka"
+            if fileExists(backupFile):
+                removeFile(backupFile)
+            moveFile(logFile, backupFile)
+    # 创建线程安全的文件日志器
+    globalLogger = newThreadFileLogger(
+        filename_tpl = logFile,
+        fmtStr = "$datetime $levelname ",
+        level_threshold = lvlAll,
+        mode = fmAppend
     )
-    # 创建文件日志处理器（追加写入 lastlog.log）
-    let fileLogger = newFileLogger(
-        filename = "lastlog.log",
-        mode = fmAppend,
-        levelThreshold = lvlAll,
-        fmtStr = verboseFmtStr
-    )
-    addHandler(consoleLogger)
-    addHandler(fileLogger)
-    # 设置全局日志过滤级别（全部记录）
-    setLogFilter(lvlAll)
 
 proc main() =
-    # 初始化日志系统
-    initLogging()
-
     # ----- 初始化 raylib 窗口（隐藏） -----
     setConfigFlags(flags(Msaa4xHint, WindowHidden, WindowUndecorated))
     initWindow(800, 600, "壁纸切换工具")
@@ -586,7 +822,7 @@ proc main() =
         # 处理托盘发来的命令
         var (hasCmd, cmd) = cmdChan.tryRecv()
         if hasCmd:
-            info cmd
+            globalLogger.info cmd
             case cmd
             of "quit":
                 running = false
@@ -602,31 +838,36 @@ proc main() =
                     setAutoStart(true)
                 tray_manager.modifyMenuItemText(auto_start_id, if isAutoStartEnabled(): "开机自启✔" else: "开机自启")
             else:
-                warn "未知命令:", cmd
+                globalLogger.warn "未知命令:", cmd
         sleep(50)
 
     # 清理
     if currentProcess != nil and currentProcess.running:
         currentProcess.terminate()
-        info "等待currentProcess退出..."
+        globalLogger.info "等待currentProcess退出..."
         let start = times.getTime()
         while currentProcess.running and (times.getTime() - start).inMilliseconds < 3000:
             sleep(50)
         if currentProcess.running:
-            warn "currentProcess未响应，强制终止"
+            globalLogger.warn "currentProcess未响应，强制终止"
             currentProcess.kill()
         currentProcess.close()
 
+    stopInputThread()
+
     tray_manager.destroyTray()    # 自动停止线程、删除图标、释放资源
-    info "托盘退出"
+    globalLogger.info "托盘退出"
     cmdChan.close()
 
     discard SystemParametersInfoW(SPI_SETDESKWALLPAPER, 0, nil, SPIF_SENDCHANGE)
 
 try:
-    main()
+    # 初始化日志系统
+    initLogging()
+    if preventMultipleInstances("PythonWallpaper"):
+        main()
 except Exception as e:
-    error("程序异常终止: ", e.msg)
-    error(e.getStackTrace())
+    globalLogger.error("程序异常终止: ", e.msg)
+    globalLogger.error(e.getStackTrace())
     when defined(debug):
         discard readLine(stdin)

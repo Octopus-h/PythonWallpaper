@@ -4,15 +4,15 @@ other = """
 
 about = """
 动态壁纸程序-nim
-版本 1.0.5.2
+版本 2.1.6.3
 作者：Octopus-h
 基于 raylib 和 winim
 这个是用nim重构的项目
+
 Github项目地址：https://github.com/Octopus-h/PythonWallpaper
+ffplay来自：https://github.com/Octopus-h/ffplay-minimal-build
 
-ffplay来自：
-https://github.com/Octopus-h/ffplay-minimal-build
-
+现在exe可以通过查找与文件同名的标题来嵌入
 如果出现默认壁纸，可能是：exe未返回HWND，你的壁纸路径改变，等等
 如果有疑问，请找到程序目录下的lastlog.log，或许可以帮到你
 exe版本请到Github项目查看release
@@ -27,7 +27,9 @@ exe版本请到Github项目查看release
 等等......
 
 更新历史：
-2026/5/9-v2.1.5.3：使用nim重构了项目，应该会运行的更快
+2026/7/17-v2.1.6.3：实现单例运行，会自动转发鼠标，键盘输入
+                    exe优先查找与文件同名的标题
+2026/7/15-v2.1.5.3：使用nim重构了项目，应该会运行的更快
                    python版本也许还会更新
 2026/5/9-v2.0.5.3：修改了托盘结构
                    改为使用infi.systray
