@@ -15,7 +15,6 @@ const
     WS_EX_LAYERED = 0x00080000'i32
     SPI_SETDESKWALLPAPER = 0x0014
     SPIF_SENDCHANGE = 0x0002
-    RI_MOUSE_HWHEEL = 0x0800
     MOVE_LIMIT_MS = 30   # 每 30 毫秒最多转发一次移动消息
     config_file = "resources/config.json"
     ffplay_path = "resources/ffmpeg/ffplay.exe"
@@ -29,6 +28,11 @@ const
 
 type
     TimeoutError* = object of CatchableError
+    WallpaperType = enum
+        wtPy,
+        wtExe,
+        wtVideo,
+        wtNil
 
 # 全局变量定义
 var
@@ -39,7 +43,9 @@ var
     cmdChan: Channel[string]
     currentProcess: Process
     font: Font
+    file_pathChan: Channel[string]
     file_path: string
+    wallpaper_type: Atomic[WallpaperType]
     infoText: string
     auto_start_id: uint32
     lastMoveTime: int64 = 0
@@ -113,10 +119,14 @@ proc forwardKeyboardEvent(wParam: WPARAM, lParam: LPARAM, targetHwnd: HWND) =
     let scanCode = info.scanCode
     let isDown = (wParam == WM_KEYDOWN) or (wParam == WM_SYSKEYDOWN)
     let msgId = if isDown: WM_KEYDOWN else: WM_KEYUP
-    # 构造 lParam（与 RawInput 转发类似）
+    # 构造 lParam
     var lParamMsg: LPARAM = 0
     lParamMsg = lParamMsg or cast[LPARAM](1)                    # 重复计数
     lParamMsg = lParamMsg or (cast[LPARAM](scanCode) shl 16)   # 扫描码
+
+    if wallpaper_type.load() == wtVideo and info.vkCode == VK_ESCAPE:
+        return
+
     if (info.flags and LLKHF_EXTENDED) != 0:
         lParamMsg = lParamMsg or (cast[LPARAM](1) shl 24)      # 扩展键
     if GetKeyState(VK_MENU) < 0:
@@ -178,10 +188,13 @@ proc hookThreadProc(param: pointer): DWORD {.stdcall.} =
             continue
 
     # 清理
-    UnhookWindowsHookEx(mouseHook)
-    UnhookWindowsHookEx(keyboardHook)
-    mouseHook = 0
-    keyboardHook = 0
+    if mouseHook != 0:
+        UnhookWindowsHookEx(mouseHook)
+        mouseHook = 0
+    if keyboardHook != 0:
+        UnhookWindowsHookEx(keyboardHook)
+        keyboardHook = 0
+
     globalLogger.info "钩子线程退出"
     return 0
 
@@ -431,12 +444,12 @@ proc embedToWorkerw(target: HWND): HWND =
     globalLogger.error "[Error] 通过标题查找并嵌入失败"
     return 0
 
-proc getFirstLine(currentProcess: Process, timeoutMs: int = 3000): string =
+proc getFirstLine(current_process: Process, timeoutMs: int = 3000): string =
     let startTime = times.getTime()
 
     while (times.getTime() - startTime).inMilliseconds < timeoutMs:
         try:
-            let results = currentProcess.outputStream.readLine()
+            let results = current_process.outputStream.readLine()
             return results
         except Exception as e:
             globalLogger.error "读取输出异常: ", e.msg
@@ -517,7 +530,12 @@ proc changeWallpaper(path_casual: string, types_casual: string) =
         # 优先通过窗口标题查找 HWND
         let baseName = extractFilename(path)
         let nameWithoutExt = baseName.splitFile().name  # 获取不带扩展名的部分
-        hwnd = FindWindowW(nil, L(nameWithoutExt))
+        let start = times.getTime()
+        while (times.getTime() - start).inMilliseconds < 1000:
+            sleep(50)
+            hwnd = FindWindowW(nil, L(nameWithoutExt))
+            if hwnd != 0:
+                break
         if hwnd == 0:
             let text = getFirstLine(currentProcess)
             if text != "":
@@ -537,6 +555,11 @@ proc changeWallpaper(path_casual: string, types_casual: string) =
                 break
 
     hwnd = embedToWorkerw(hwnd)
+    case types
+    of "py":    wallpaper_type.store(wtPy)
+    of "exe":   wallpaper_type.store(wtExe)
+    of "video": wallpaper_type.store(wtVideo)
+    else: wallpaper_type.store(wtNil)
 
     if hwnd != 0:
         discard startInputThread(hwnd)
@@ -731,32 +754,35 @@ proc aboutApp() =
 
 #====================回调函数====================
 proc selectPy() = 
-    file_path = selectFile("Python文件", "*.py")
-    if file_path == "":
+    let path = selectFile("Python文件", "*.py")
+    if path == "":
         return
+    file_pathChan.send(path)
     cmdChan.send("py")
     let now = times.getTime().format("yyyy-MM-dd HH:mm:ss")
-    discard updateJson(config_file, "last_wallpaper_path", file_path)
+    discard updateJson(config_file, "last_wallpaper_path", path)
     discard updateJson(config_file, "type", "py")
     discard updateJson(config_file, "update_time", now)
 
 proc selectVideo() = 
-    file_path = selectFile("MP4文件", "*.mp4")
-    if file_path == "":
+    let path = selectFile("MP4文件", "*.mp4")
+    if path == "":
         return
+    file_pathChan.send(path)
     cmdChan.send("video")
     let now = times.getTime().format("yyyy-MM-dd HH:mm:ss")
-    discard updateJson(config_file, "last_wallpaper_path", file_path)
+    discard updateJson(config_file, "last_wallpaper_path", path)
     discard updateJson(config_file, "type", "video")
     discard updateJson(config_file, "update_time", now)
 
 proc selectEXE() = 
-    file_path = selectFile("可执行文件", "*.exe")
-    if file_path == "":
+    let path = selectFile("可执行文件", "*.exe")
+    if path == "":
         return
+    file_pathChan.send(path)
     cmdChan.send("exe")
     let now = times.getTime().format("yyyy-MM-dd HH:mm:ss")
-    discard updateJson(config_file, "last_wallpaper_path", file_path)
+    discard updateJson(config_file, "last_wallpaper_path", path)
     discard updateJson(config_file, "type", "exe")
     discard updateJson(config_file, "update_time", now)
 
@@ -801,6 +827,7 @@ proc main() =
     initFont()    # 加载全局字体（只一次）
 
     cmdChan.open()
+    file_pathChan.open()
 
     # 创建托盘对象
     tray_manager = newTray(icon_path, "PythonWallpaper")
@@ -828,6 +855,8 @@ proc main() =
                 running = false
                 break
             of "py", "exe", "video":
+                var (haspath, path) = file_pathChan.tryRecv()
+                file_path = path
                 changeWallpaper(file_path, cmd)
             of "about":
                 aboutApp()
@@ -866,6 +895,7 @@ try:
     initLogging()
     if preventMultipleInstances("PythonWallpaper"):
         main()
+        globalLogger.close()
 except Exception as e:
     globalLogger.error("程序异常终止: ", e.msg)
     globalLogger.error(e.getStackTrace())
