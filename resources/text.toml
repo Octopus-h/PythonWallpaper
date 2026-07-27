@@ -3,10 +3,10 @@ other = """
 """
 
 about = """
-动态壁纸程序-nim
-版本 2.1.6.3
+动态壁纸程序-rust
+版本 2.2.6.4
 作者：Octopus-h
-基于 raylib 和 winim
+基于 macroquad 和 DeepSeek
 这个是用nim重构的项目
 
 Github项目地址：https://github.com/Octopus-h/PythonWallpaper
@@ -22,11 +22,12 @@ exe版本请到Github项目查看release
 感谢所有使用和支持本软件的朋友。
 感谢ffmpeg：https://git.ffmpeg.org/ffmpeg.git
 感谢霞鹜文楷：https://github.com/lxgw/LxgwWenKai-Lite/
-感谢naylib：https://github.com/planetis-m/naylib
-感谢naygui：https://github.com/planetis-m/naygui
+感谢macroquad：https://github.com/not-fl3/macroquad
 等等......
 
 更新历史：
+2026/7/18-v2.2.6.4：使用rust重构，修正python导入问题,
+                    有内存问题算炸单
 2026/7/18-v2.1.6.4：修正exe导入问题，修复了奇奇怪怪的内存问题
                     好吧，我不认为修复了
 2026/7/17-v2.1.6.3：实现单例运行，会自动转发鼠标，键盘输入

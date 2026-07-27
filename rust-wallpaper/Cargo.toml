@@ -1,0 +1,70 @@
+[package]
+name = "PythonWallpaper"
+version = "0.1.0"
+edition = "2021"
+build = "build.rs"
+
+[build-dependencies]
+
+embed-resource = "2.4"
+
+[dependencies]
+# Windows API 绑定（使用 windows crate，启用必要特性）
+windows = { version = "0.52", features = [
+    "Win32_Foundation",
+    "Win32_System_Com",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_UI_Controls",
+    "Win32_UI_Input",
+    "Win32_UI_HiDpi",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_System_Registry",
+    "Win32_System_LibraryLoader",
+    "Win32_System_Threading",
+    "Win32_System_SystemInformation",
+    "Win32_Security",
+    "Win32_Graphics_Gdi",
+] }
+
+# 序列化与配置
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+toml = "0.8"
+
+# 图形界面
+macroquad = "0.4"
+
+# 系统托盘
+ldtray = "0.1.2"
+image = "0.24"
+
+# 文件对话框
+rfd = "0.14"
+
+# 日志
+log = "0.4"
+simplelog = "0.12"
+
+# 错误处理
+anyhow = "1.0"
+thiserror = "1.0"
+
+# 并发通道
+crossbeam-channel = "0.5"
+
+# 时间处理（用于配置更新时间）
+chrono = "0.4"
+
+# 全局静态变量（lazy_static）
+lazy_static = "1.4"
+
+[profile.dev]
+# 调试模式优化（可选）
+opt-level = 0
+
+[profile.release]
+# 发布模式优化（减小体积）
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true

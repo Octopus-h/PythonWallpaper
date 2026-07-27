@@ -1,5 +1,5 @@
 python39.zip
-../../lib
+/lib
 .
 
 # Uncomment to run site.main() automatically
