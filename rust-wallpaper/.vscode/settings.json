@@ -1,0 +1,37 @@
+{
+  // rust-analyzer 主进程要看到的环境变量（语言服务器进程会加载）
+  "rust-analyzer.server.path":
+    "P:\\rust-portable-cross\\tools\\rustup-home\\toolchains\\stable-x86_64-pc-windows-gnu\\bin\\rust-analyzer.exe",
+  "rust-analyzer.server.extraEnv": {
+    // 指向你便携 rustup 的根目录（.rustup）
+    "RUSTUP_HOME": "P:\\rust-portable-cross\\tools\\rustup-home",
+    // 指向你便携 cargo 的根目录（cargo-home）
+    "CARGO_HOME": "P:\\rust-portable-cross\\tools\\cargo-home",
+    // 指定要使用的 toolchain（三元组）
+    "RUSTUP_TOOLCHAIN": "stable-x86_64-pc-windows-gnu",
+    // 把便携 cargo bin 放到 PATH 前面，确保调用 cargo/rustup 时优先使用便携版
+    "PATH": "P:\\rust-portable-cross\\tools\\cargo-home\\bin;${env:PATH}"
+  },
+
+  // 当 rust-analyzer 内部调用 cargo（比如进行 check/build）时使用的环境
+  "rust-analyzer.cargo.extraEnv": {
+    "RUSTUP_HOME": "P:\\rust-portable-cross\\tools\\rustup-home",
+    "CARGO_HOME": "P:\\rust-portable-cross\\tools\\cargo-home",
+    "RUSTUP_TOOLCHAIN": "stable-x86_64-pc-windows-gnu",
+    "PATH": "P:\\MinGW\\bin;P:\\rust-portable-cross\\tools\\cargo-home\\bin;${env:PATH}"
+  },
+
+  // 集成终端使用便携环境（在 VS Code 终端运行 cargo 时会生效）
+  "terminal.integrated.env.windows": {
+    "RUSTUP_HOME": "P:\\rust-portable-cross\\tools\\rustup-home",
+    "CARGO_HOME": "P:\\rust-portable-cross\\tools\\cargo-home",
+    "PATH": "P:\\MinGW\\bin;P:\\rust-portable-cross\\tools\\cargo-home\\bin;${env:PATH}"
+  },
+
+  "rust-analyzer.procMacro.enable": true,
+  "rust-analyzer.cargo.features": [],
+
+  // 文件结尾统一为 LF（可选）
+  "files.eol": "\n",
+  "python-envs.defaultEnvManager": "ms-python.python:system"
+}

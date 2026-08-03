@@ -5,11 +5,12 @@
 #![windows_subsystem = "windows"]  // 无控制台窗口（发布时可注释掉以调试）
 
 mod worker_w; // 引入独立的 WorkerW 嵌入模块
+mod widget;
 mod hook;     // 引入钩子模块
 mod ui;       // 引入 UI 模块（macroquad 关于窗口）
 
 use std::{
-    env, fs::{self, File}, io::{BufRead, BufReader}, os::windows::process::CommandExt, path::Path, process::{Child, Command, Stdio}, sync::{
+    env, fs::{self}, io::{BufRead, BufReader}, os::windows::process::CommandExt, path::Path, process::{Child, Command, Stdio}, sync::{
         Mutex, atomic::{AtomicBool, AtomicIsize, Ordering},
     }, thread, time::{Duration, Instant},
 };
@@ -18,7 +19,7 @@ use chrono::Local;
 use crossbeam_channel::{Sender, bounded};
 use log::{error, info, warn};
 use serde_json::{Value, Map};
-use simplelog::{Config, WriteLogger};
+use flexi_logger::{Logger, FileSpec, WriteMode, Criterion, Naming, Cleanup};
 use ldtray::{Tray, TrayConfig, Icon, Menu, MenuItem};
 use rfd::FileDialog;
 use windows::{
@@ -81,8 +82,6 @@ pub struct AppState {
 // 这些类型需要 Send + Sync，因为它们会被跨线程共享
 unsafe impl Send for AppState {}
 unsafe impl Sync for AppState {}
-// ---- 托盘回调（通过通道发送 ID） ----
-// 我们使用一个全局通道将菜单点击事件从托盘线程发送到主循环
 
 lazy_static::lazy_static! {
     pub static ref STATE: AppState = AppState {
@@ -101,7 +100,9 @@ lazy_static::lazy_static! {
 
 // ---- 全局通道 ----
 use std::sync::OnceLock;
+use crate::ui::UiCommand;
 static CMD_CHAN: OnceLock<Sender<(String, String, String)>> = OnceLock::new();
+static UI_SENDER: OnceLock<Sender<UiCommand>> = OnceLock::new();
 
 fn setup_panic_hook() {
     let default_hook = std::panic::take_hook();
@@ -135,22 +136,18 @@ fn setup_panic_hook() {
 
 // ---- 日志初始化 ----
 fn init_logging() {
-    let log_file = "lastlog.log";
-    // 日志轮转逻辑
-    if Path::new(log_file).exists() {
-        if let Ok(meta) = fs::metadata(log_file) {
-            if meta.len() > 256 * 1024 {
-                let _ = fs::rename(log_file, format!("{}.baka", log_file));
-            }
-        }
-    }
-    // 使用 WriteLogger 将日志写入文件
-    WriteLogger::init(
-        log::LevelFilter::Info,
-        Config::default(),
-        File::create(log_file).expect("创建日志文件失败"),
-    )
-    .expect("初始化日志失败");
+    Logger::try_with_str("info") // 日志级别
+        .unwrap()
+        .log_to_file(FileSpec::default().basename("lastlog").suffix("log"))
+        .append()
+        .write_mode(WriteMode::BufferAndFlush) // 缓冲+刷新
+        .rotate(
+            Criterion::Size(256 * 1024),       // 到达 256KB 轮转
+            Naming::Timestamps,
+            Cleanup::KeepLogFiles(3),          // 只保留最新 3 个备份
+        )
+        .start()
+        .unwrap();
 }
 
 // ---- 辅助：防止多实例 ----
@@ -462,6 +459,12 @@ pub fn set_auto_start(enable: bool) {
             RegSetValueExW(hkey, value_name, 0, REG_SZ, Some(data_bytes)).is_ok()
         };
         if !set_ok {
+            if let Some(sender) = UI_SENDER.get() {
+                let _ = sender.send(UiCommand::ShowError {
+                    title: "其实只是个警告".to_string(),
+                    message: "设置开机自启失败".to_string()
+                });
+            }
             warn!("设置开机自启失败");
         }
     } else {
@@ -616,10 +619,12 @@ fn run() -> anyhow::Result<()> {
     // 创建通道并设为全局
     let (cmd_sender, cmd_receiver) = bounded::<(String, String, String)>(100);
     CMD_CHAN.set(cmd_sender).expect("CMD_CHAN 已存在");
+    // ui通道
+    UI_SENDER.set(ui::start_ui_thread()).unwrap_or_else(|_| {
+        log::warn!("UI_SENDER 已被初始化，忽略重复设置");
+    });
     // 加载图标
     let icon = load_icon_from_path(ICON_PATH)?;
-    // ui通道
-    let ui_sender=ui::start_ui_thread();
 
     // ---------- 创建托盘菜单 ----------
     // 菜单 ID
@@ -677,6 +682,13 @@ fn run() -> anyhow::Result<()> {
                     let text = {
                         let txt = STATE.info_text.lock().unwrap();
                         if txt.is_empty() {
+                            warn!("关于文本缺失。");
+                            if let Some(sender) = UI_SENDER.get() {
+                                let _ = sender.send(UiCommand::ShowError {
+                                    title: "内容错误".to_string(),
+                                    message: "关于文本缺失".to_string()
+                                });
+                            }
                             "默认关于文本".to_string()
                         } else {
                             if let Ok(value) = toml::from_str::<toml::Value>(&txt) {
@@ -690,7 +702,9 @@ fn run() -> anyhow::Result<()> {
                             }
                         }
                     };
-                    let _ = ui_sender.send(ui::UiCommand::ShowAbout(text));
+                    if let Some(sender) = UI_SENDER.get() {
+                        let _ = sender.send(ui::UiCommand::ShowAbout(text));
+                    }
                 }
                 "quit" => {
                     STATE.running.store(false, Ordering::Relaxed);

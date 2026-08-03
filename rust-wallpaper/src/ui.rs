@@ -1,10 +1,8 @@
 use macroquad::prelude::*;
-use windows::Win32::Foundation::{HWND, POINT, RECT};
+use windows::Win32::Foundation::{HWND};
 use windows::Win32::UI::WindowsAndMessaging::{
     ShowWindow,
     SW_HIDE,
-    GetWindowRect,
-    GetCursorPos,
     SW_SHOW,
     FindWindowW,
     GWL_EXSTYLE, GWL_STYLE, SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, SWP_FRAMECHANGED,
@@ -13,29 +11,35 @@ use windows::Win32::UI::WindowsAndMessaging::{
 use windows::core::*;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
-    mpsc::{Sender, Receiver},
 };
 use std::cell::RefCell;
 
+use crossbeam_channel::{Sender, Receiver, bounded};
+
+use crate::widget::*;
+
 pub enum UiCommand {
     ShowAbout(String),
+    ShowError {
+        title: String,
+        message: String,
+    },
+    ShowSettings,
     Hide,
     Exit,
 }
 
 static UI_RUNNING: AtomicBool = AtomicBool::new(false);
-const FONT_PATH: &str = "resources/LXGWWenKaiLite-Light.ttf";
+const FONT_PATH: &str = "resources/LXGWWenKaiMonoLite-Medium.ttf";
+const FOUND_BUG_PNG: &str = "resources/icons/found_bug.png";
 
 thread_local! {
-    static DRAGGING: RefCell<bool> = const { RefCell::new(false) };
-    static DRAG_START_MOUSE: RefCell<POINT> = const { RefCell::new(POINT { x: 0, y: 0 }) };
-    static DRAG_START_WINDOW: RefCell<(i32, i32)> = const { RefCell::new((0, 0)) };
     static CACHED_LINES: RefCell<Option<(String, Vec<String>)>> = const { RefCell::new(None) };
 }
 
 #[cfg(target_os="windows")]
 fn get_hwnd() -> Option<HWND> {
-    let hwnd = unsafe{ FindWindowW(None, w!("关于 PythonWallpaper")) };
+    let hwnd = unsafe{ FindWindowW(None, w!("PythonWallpaperWindow")) };
     if hwnd.0 == 0 {
         None
     } else {
@@ -129,124 +133,48 @@ pub fn wrap_cn_text(text: &str, font: &Font, font_size: u16, max_width: f32,) ->
     result
 }
 
-fn draw_about(font: &Font, text: &str, tx: &Sender<UiCommand>, scroll: &mut f32,) {
-    // 颜色常量
-    const BG: Color = Color::from_rgba(30, 30, 30, 255);
-    const TITLE_BG: Color = Color::from_rgba(45, 45, 45, 255);
-    const SCROLLBAR_BG: Color = Color::from_rgba(70, 70, 70, 180);
-    const SCROLLBAR_THUMB: Color = Color::from_rgba(160, 160, 160, 220);
-    const TEXT_COLOR: Color = Color::from_rgba(224, 158, 233, 255);
-    const CLOSE_COLOR: Color = TEXT_COLOR;
-
-    // 尺寸常量
-    const TITLE_H: f32 = 45.0;
-    const LINE_H: f32 = 32.0;
-    const PADDING_X: f32 = 35.0;
-    const PADDING_Y: f32 = 20.0;
-    const SCROLLBAR_WIDTH: f32 = 8.0;
-    const SCROLLBAR_MARGIN: f32 = 18.0;
-    const CLOSE_BTN_WIDTH: f32 = 40.0;
-    const FONT_SIZE: u16 = 22;
-
-    let (win_w, win_h) = (screen_width(), screen_height());
-
-    let (mx, my) = mouse_position();
-    let hwnd = get_hwnd().unwrap_or(HWND(0));
-
-    // ─── 拖动逻辑：按下标题栏开始拖动 ───
-    if is_mouse_button_pressed(MouseButton::Left)
-        && my < TITLE_H
-        && mx < win_w - CLOSE_BTN_WIDTH
-    {
-        DRAGGING.with(|cell| *cell.borrow_mut() = true);
-
-        let mut cursor = POINT::default();
-        let _ = unsafe { GetCursorPos(&mut cursor) };
-        DRAG_START_MOUSE.with(|cell| *cell.borrow_mut() = POINT {x:cursor.x, y:cursor.y});
-
-        let mut rect = RECT::default();
-        let _ = unsafe { GetWindowRect(hwnd, &mut rect) };
-        DRAG_START_WINDOW.with(|cell| *cell.borrow_mut() = (rect.left, rect.top));
-    }
-
-    // ─── 拖动中移动窗口 ───
-    let dragging = DRAGGING.with(|cell| *cell.borrow());
-    if is_mouse_button_down(MouseButton::Left) && dragging {
-        let mut cursor = POINT::default();
-        let _ = unsafe { GetCursorPos(&mut cursor) };
-
-        let start_mouse = DRAG_START_MOUSE.with(|cell| *cell.borrow());
-        let start_window = DRAG_START_WINDOW.with(|cell| *cell.borrow());
-
-        let dx = cursor.x - start_mouse.x;
-        let dy = cursor.y - start_mouse.y;
-        let new_x = start_window.0 + dx;
-        let new_y = start_window.1 + dy;
-
-        let _ = unsafe { SetWindowPos(hwnd, HWND(0), new_x, new_y, 0, 0, SWP_NOSIZE | SWP_NOZORDER) };
-    }
-
-        // ─── 停止拖动 ───
-        if !is_mouse_button_down(MouseButton::Left) {
-            DRAGGING.with(|cell| *cell.borrow_mut() = false);
-        }
-    
-
-    // ─── 背景 ───
+/// 绘制关于窗口，返回是否点击了关闭按钮（`bool`）
+fn draw_about(
+    font: &Font,
+    text: &str,
+    win_w: f32,
+    win_h: f32,
+    hwnd: HWND,
+    drag_state: &mut TitleBarDragState,
+    scroll: &mut f32,
+) -> bool {
+    // 背景
     draw_rectangle(0.0, 0.0, win_w, win_h, BG);
 
-    // ─── 标题栏 ───
-    draw_rectangle(0.0, 0.0, win_w, TITLE_H, TITLE_BG);
-
-    // 标题文字
-    draw_text_ex("PythonWallpaper", 20.0, 30.0, TextParams {
-        font: Some(font),
-        font_size: FONT_SIZE,
-        color: WHITE,
-        ..Default::default()
-    });
-
-    // 关闭按钮
-    let close_x = win_w - CLOSE_BTN_WIDTH;
-    draw_text_ex("×", close_x, 32.0, TextParams {
-        font: Some(font),
-        font_size: 28,
-        color: CLOSE_COLOR,
-        ..Default::default()
-    });
-
-    if is_mouse_button_pressed(MouseButton::Left) {
-        let (mx, my) = mouse_position();
-        if mx > close_x && my < TITLE_H {
-            let _ = tx.send(UiCommand::Hide);
-            return;
-        }
+    // 标题栏
+    let close_clicked = draw_title_bar(font, "PythonWallpaper", win_w, hwnd, drag_state);
+    if close_clicked {
+        return true;
     }
 
-    // ─── 内容区域 ───
+    // 内容区域
     let content_x = PADDING_X;
     let content_y = TITLE_H + PADDING_Y;
     let content_w = win_w - PADDING_X * 2.0;
-
-    // 文本换行
     let lines = wrap_cn_text(text, font, FONT_SIZE, content_w);
     let total_h = lines.len() as f32 * LINE_H;
 
-    // 鼠标滚轮
+    // 滚轮
     let wheel = mouse_wheel().1;
-    if wheel != 0.0 {
-        *scroll -= wheel * 1.5;
-    }
+    if wheel != 0.0 { *scroll -= wheel * 1.5; }
 
     let visible_h = win_h - TITLE_H - 30.0;
     let max_scroll = (total_h - visible_h).max(0.0);
     *scroll = scroll.clamp(0.0, max_scroll);
 
-    // 绘制文本行
-    let mut y = content_y - *scroll;
+    // 绘制文本
+    let clip_top = TITLE_H + 5.0;  // 留出5像素空白，避免紧贴标题栏
     let bottom_clip = win_h - 20.0;
+    let mut y = content_y - *scroll;
     for line in &lines {
-        if y > TITLE_H && y < bottom_clip {
+        let line_top = y - FONT_SIZE as f32; // 文字顶部大致位置
+        let line_bottom = y + LINE_H * 0.3;   // 文字底部（descender部分）
+        if line_top > clip_top && line_bottom < bottom_clip {
             draw_text_ex(line, content_x, y, TextParams {
                 font: Some(font),
                 font_size: FONT_SIZE,
@@ -257,67 +185,240 @@ fn draw_about(font: &Font, text: &str, tx: &Sender<UiCommand>, scroll: &mut f32,
         y += LINE_H;
     }
 
-    // ─── 滚动条 ───
+    // 滚动条
     if total_h > visible_h {
-        let bar_x = win_w - SCROLLBAR_MARGIN;
-        let bar_h = visible_h;
-
-        // 滚动条背景
-        draw_rectangle(bar_x, TITLE_H, SCROLLBAR_WIDTH, bar_h, SCROLLBAR_BG);
-
-        // 滑块
-        let ratio = (bar_h / total_h).min(1.0);
-        let mut slider_h = bar_h * ratio;
-        if slider_h < 20.0 { slider_h = 20.0; }
-        let slider_y = TITLE_H + (*scroll / max_scroll) * (bar_h - slider_h);
-
-        draw_rectangle(bar_x, slider_y, SCROLLBAR_WIDTH, slider_h, SCROLLBAR_THUMB);
-
-        // 拖动滚动条
-        if is_mouse_button_down(MouseButton::Left) {
-            let (mx, my) = mouse_position();
-            if mx > bar_x - 10.0 && mx < bar_x + SCROLLBAR_WIDTH + 2.0 {
-                let percent = ((my - TITLE_H - slider_h / 2.0) / (bar_h - slider_h)).clamp(0.0, 1.0);
-                *scroll = percent * max_scroll;
-            }
+        if let Some(new_scroll) = draw_scrollbar_at(
+            win_w - SCROLLBAR_MARGIN,
+            TITLE_H,
+            visible_h,
+            total_h,
+            max_scroll,
+            *scroll,
+        ) {
+            *scroll = new_scroll;
         }
     }
 
-    // ─── 底部版本信息 ───
+    // 底部版本
     draw_text_ex("Rust + Macroquad", 20.0, win_h - 15.0, TextParams {
         font: Some(font),
         font_size: 16,
         color: GRAY,
         ..Default::default()
     });
+
+    false
 }
 
-async fn ui_loop(rx:Receiver<UiCommand>, tx: Sender<UiCommand>,) {
+/// 绘制错误窗口，返回是否点击了关闭按钮（`bool`）
+fn draw_error(
+    font: &Font,
+    icon: &Texture2D,
+    title: &str,
+    message: &str,
+    win_w: f32,
+    win_h: f32,
+    hwnd: HWND,
+    drag_state: &mut TitleBarDragState,
+    scroll: &mut f32,
+) -> bool {
+    draw_rectangle(0.0, 0.0, win_w, win_h, BG);
+
+    let close_clicked = draw_title_bar(font, "不好，程序里冒出一只Bug",
+                                            win_w, hwnd, drag_state);
+    if close_clicked {
+        return true;
+    }
+
+    let content_y = TITLE_H + PADDING_Y;
+    let content_h = win_h - TITLE_H - PADDING_Y - 20.0;
+    let left_padding = PADDING_X;
+    let gap = 20.0;
+
+    // 左侧图标：竖直填充
+    let icon_height = content_h - 40.0;
+    let icon_width = icon.width() * icon_height / icon.height();
+    draw_texture_ex(
+        icon,
+        left_padding,
+        content_y,
+        WHITE,
+        DrawTextureParams {
+            dest_size: Some(Vec2::new(icon_width, icon_height)),
+            ..Default::default()
+        },
+    );
+
+    let text_x = left_padding + icon_width + gap;
+    let text_max_w = win_w - text_x - PADDING_X;
+
+    // 标题
+    let title_size = measure_text(title, Some(font), 26, 1.0);
+    draw_text_ex(title, text_x, content_y, TextParams {
+        font: Some(font), font_size: 26, color: TEXT_COLOR, ..Default::default()
+    });
+
+    // 消息
+    let msg_y = content_y + title_size.height + 10.0;
+    let msg_area_h = content_h - title_size.height - 10.0;
+    let lines = wrap_cn_text(message, font, FONT_SIZE, text_max_w);
+    let total_text_h = lines.len() as f32 * LINE_H;
+
+    let wheel = mouse_wheel().1;
+    if wheel != 0.0 { *scroll -= wheel * 1.5; }
+    let max_scroll = (total_text_h - msg_area_h).max(0.0);
+    *scroll = scroll.clamp(0.0, max_scroll);
+
+    let clip_top = msg_y; // 直接用 msg_y，因为上面还有标题，已经安全
+    let clip_bottom = content_y + content_h;
+    let mut y = msg_y - *scroll;
+    for line in &lines {
+        let line_top = y - FONT_SIZE as f32;
+        let line_bottom = y + LINE_H * 0.3;
+        if line_top > clip_top && line_bottom < clip_bottom {
+            draw_text_ex(line, text_x, y, TextParams {
+                font: Some(font),
+                font_size: FONT_SIZE,
+                color: TEXT_COLOR,
+                ..Default::default()
+            });
+        }
+        y += LINE_H;
+    }
+
+    if total_text_h > msg_area_h {
+        if let Some(new_scroll) = draw_scrollbar_at(
+            win_w - SCROLLBAR_MARGIN,
+            msg_y,
+            msg_area_h,
+            total_text_h,
+            max_scroll,
+            *scroll,
+        ) {
+            *scroll = new_scroll;
+        }
+    }
+
+    draw_text_ex("Rust + Macroquad [lastlog.log内查找更多]", 20.0, win_h - 15.0, TextParams {
+        font: Some(font),
+        font_size: 20,
+        color: TEXT_COLOR_GREEN,
+        ..Default::default()
+    });
+
+    false
+}
+
+fn draw_settings(
+    font: &Font,
+    win_w: f32,
+    win_h: f32,
+    hwnd: HWND,
+    drag_state: &mut TitleBarDragState,
+    cursor_pos: &mut usize,
+    scroll: &mut f32,
+) -> bool {
+    draw_rectangle(0.0, 0.0, win_w, win_h, BG);
+
+    let close_clicked = draw_title_bar(font, "设置", win_w, hwnd, drag_state);
+    if close_clicked {
+        return true;
+    }
+
+    let left = PADDING_X;
+    let y_start = TITLE_H + 20.0;
+    let label_color = LIGHTGRAY;
+    let input_width = win_w - PADDING_X * 2.0 - 140.0; // 留出按钮空间
+
+    // 标签
+    draw_text_ex("Python 解释器路径：", left, y_start + 20.0, TextParams {
+        font: Some(font), font_size: FONT_SIZE, color: label_color, ..Default::default()
+    });
+
+    // 输入框
+    draw_text_input(font, left, y_start + 40.0,
+        input_width, &mut "".to_string(),
+        cursor_pos, true,
+    );
+
+    draw_text_ex("Rust + Macroquad", 20.0, win_h - 15.0, TextParams {
+        font: Some(font),
+        font_size: 20,
+        color: TEXT_COLOR_GREEN,
+        ..Default::default()
+    });
+
+    false
+}
+
+async fn ui_loop(rx: Receiver<UiCommand>, tx: Sender<UiCommand>) {
     make_borderless();
     hide_window();
-    let font = load_ttf_font(FONT_PATH)
-        .await
-        .unwrap();
+
+    let font = load_ttf_font(FONT_PATH).await.unwrap();
+    let error_icon = load_texture(FOUND_BUG_PNG).await.unwrap();
 
     let mut cmd_to_execute: Option<UiCommand> = None;
-    let mut about_scrool: f32 = 0.0;
+    let mut about_scroll = 0.0f32;
+    let mut error_scroll = 0.0f32;
+    let mut settings_scroll = 0.0f32;
+    let mut settings_cursor: usize = 0;
+    let mut drag_state = TitleBarDragState::default();
+
     loop {
+        if is_quit_requested() {
+            prevent_quit();
+            hide_window();
+            cmd_to_execute = None;
+        }
+
         clear_background(Color::from_rgba(30, 30, 30, 255));
-        // 一次性收走所有待处理命令，只保留最后一条
-        while let Ok(cmd) = rx.try_recv() {
+
+        // 接收命令
+        if let Ok(cmd) = rx.try_recv() {
             cmd_to_execute = Some(cmd);
         }
 
+        let (win_w, win_h) = (screen_width(), screen_height());
+        let hwnd = get_hwnd().unwrap_or(HWND(0));
+
+        // 处理当前命令
         if let Some(ref cmd) = cmd_to_execute {
             match cmd {
                 UiCommand::ShowAbout(t) => {
-                    draw_about(&font, &t, &tx, &mut about_scrool);
-                    show_window();
-                }
+                    if draw_about(&font, t, win_w, win_h, hwnd, &mut drag_state, &mut about_scroll) {
+                        // 用户点击了关闭按钮
+                        hide_window();
+                        cmd_to_execute = None;
+                    } else {
+                        show_window();
+                    }
+                },
+                UiCommand::ShowError { title, message } => {
+                    // 日志记录由外部负责
+                    if draw_error(&font, &error_icon, title, message,
+                                  win_w, win_h, hwnd,
+                                  &mut drag_state, &mut error_scroll) {
+                        hide_window();
+                        cmd_to_execute = None;
+                    } else {
+                        show_window();
+                    }
+                },
+                UiCommand::ShowSettings  => {
+                    if draw_settings(&font, win_w, win_h, hwnd, &mut drag_state,
+                        &mut settings_cursor, &mut settings_scroll) {
+                        // 用户点击了关闭按钮
+                        hide_window();
+                        cmd_to_execute = None;
+                    } else {
+                        show_window();
+                    }
+                },
                 UiCommand::Hide => {
                     hide_window();
-                    cmd_to_execute = None
-                }
+                    cmd_to_execute = None; // 清空命令，避免下一帧重复执行
+                },
                 UiCommand::Exit => break,
             }
         }
@@ -327,9 +428,12 @@ async fn ui_loop(rx:Receiver<UiCommand>, tx: Sender<UiCommand>,) {
 }
 
 pub fn start_ui_thread() -> Sender<UiCommand> {
-    let (tx,rx)=std::sync::mpsc::channel();
+    let (tx, rx) = bounded::<UiCommand>(10);
+    // 或 unbounded()
 
-    if UI_RUNNING.swap(true, Ordering::SeqCst) { return tx; }
+    if UI_RUNNING.swap(true, Ordering::SeqCst) {
+        return tx;
+    }
 
     let tx_clone = tx.clone();
 
@@ -337,9 +441,9 @@ pub fn start_ui_thread() -> Sender<UiCommand> {
         macroquad::Window::from_config(
             Conf {
                 window_title:
-                    "关于 PythonWallpaper".into(),
-                window_width:800,
-                window_height:600,
+                    "PythonWallpaperWindow".into(),
+                window_width:1000,
+                window_height:750,
                 window_resizable:true,
                 fullscreen:false,
                 ..Default::default()

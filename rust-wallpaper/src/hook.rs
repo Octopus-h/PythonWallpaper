@@ -4,7 +4,7 @@
 use std::sync::atomic::Ordering;
 use std::thread;
 
-use log::{error, info, warn};
+use log::{error, info};
 use windows::{
     Win32::{
         Foundation::*,
