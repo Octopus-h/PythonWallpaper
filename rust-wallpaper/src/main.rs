@@ -5,7 +5,6 @@
 #![windows_subsystem = "windows"]  // 无控制台窗口（发布时可注释掉以调试）
 
 mod worker_w; // 引入独立的 WorkerW 嵌入模块
-mod widget;
 mod hook;     // 引入钩子模块
 mod ui;       // 引入 UI 模块（macroquad 关于窗口）
 
@@ -46,14 +45,124 @@ const INFO_TEXT_PATH: &str = "resources/text.toml";
 const AUTO_START_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Run";
 const APP_REGISTRY_NAME: &str = "PythonWallpaper";
 
-// ---- 菜单 ID 结构 ----
-struct MenuIds {
-    autostart: u32,
-    py: u32,
-    exe: u32,
-    vid: u32,
-    about: u32,
-    exit: u32,
+// ---- 菜单动作（方法一：枚举 + Vec<MenuEntry>，数据驱动） ----
+#[derive(Clone, Copy)]
+enum MenuAction {
+    ToggleAutostart,
+    SelectPythonWallpaper,
+    SelectExeWallpaper,
+    SelectVideoWallpaper,
+    ShowAbout,
+    ShowSettings,
+    Exit,
+}
+
+// ---- 菜单项（支持普通按钮和分隔线） ----
+#[derive(Clone)]
+enum MenuEntry {
+    Item {
+        id: u32,
+        label: String,
+        action: MenuAction,
+    },
+    Separator,
+}
+
+/// 集中构建菜单配置（添加新菜单项只需在此追加一行）
+fn build_menu_config(autostart_enabled: bool) -> Vec<MenuEntry> {
+    vec![
+        MenuEntry::Item {
+            id: 1,
+            label: if autostart_enabled {
+                "开机自启✔".to_string()
+            } else {
+                "开机自启".to_string()
+            },
+            action: MenuAction::ToggleAutostart,
+        },
+        MenuEntry::Separator,
+        MenuEntry::Item {
+            id: 2,
+            label: "切换壁纸(Python)".to_string(),
+            action: MenuAction::SelectPythonWallpaper,
+        },
+        MenuEntry::Item {
+            id: 3,
+            label: "切换壁纸(exe)".to_string(),
+            action: MenuAction::SelectExeWallpaper,
+        },
+        MenuEntry::Item {
+            id: 4,
+            label: "切换壁纸(mp4)".to_string(),
+            action: MenuAction::SelectVideoWallpaper,
+        },
+        MenuEntry::Separator,
+        MenuEntry::Item {
+            id: 5,
+            label: "关于".to_string(),
+            action: MenuAction::ShowAbout,
+        },
+        MenuEntry::Item {
+            id: 6,
+            label: "设置".to_string(),
+            action: MenuAction::ShowSettings,
+        },
+        MenuEntry::Separator,
+        MenuEntry::Item {
+            id: 7,
+            label: "退出".to_string(),
+            action: MenuAction::Exit,
+        },
+    ]
+}
+
+/// 将菜单配置转换为 ldtray 的 Menu
+fn build_ldtray_menu(entries: &[MenuEntry]) -> Menu {
+    let mut menu = Menu::new();
+    for entry in entries {
+        match entry {
+            MenuEntry::Item { id, label, .. } => {
+                menu = menu.item(MenuItem::button(*id, label.clone()));
+            }
+            MenuEntry::Separator => {
+                menu = menu.item(MenuItem::separator());
+            }
+        }
+    }
+    menu
+}
+
+/// 动作分发：将 MenuAction 映射到具体回调
+fn dispatch_action(action: MenuAction) {
+    match action {
+        MenuAction::ToggleAutostart => tray_callback_autostart(),
+        MenuAction::SelectPythonWallpaper => tray_callback_select_py(),
+        MenuAction::SelectExeWallpaper => tray_callback_select_exe(),
+        MenuAction::SelectVideoWallpaper => tray_callback_select_video(),
+        MenuAction::ShowAbout => tray_callback_about(),
+        MenuAction::ShowSettings => tray_callback_settings(),
+        MenuAction::Exit => tray_callback_exit(),
+    }
+}
+
+/// 根据菜单 ID 查找对应的动作
+fn action_for_id(entries: &[MenuEntry], id: u32) -> Option<MenuAction> {
+    entries.iter().find_map(|entry| {
+        if let MenuEntry::Item {
+            id: item_id,
+            action,
+            ..
+        } = entry
+        {
+            if *item_id == id {
+                Some(*action)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    })
 }
 
 // ---- 类型 ----
@@ -100,9 +209,9 @@ lazy_static::lazy_static! {
 
 // ---- 全局通道 ----
 use std::sync::OnceLock;
-use crate::ui::UiCommand;
+
+use crate::ui::*;
 static CMD_CHAN: OnceLock<Sender<(String, String, String)>> = OnceLock::new();
-static UI_SENDER: OnceLock<Sender<UiCommand>> = OnceLock::new();
 
 fn setup_panic_hook() {
     let default_hook = std::panic::take_hook();
@@ -138,6 +247,16 @@ fn setup_panic_hook() {
 fn init_logging() {
     Logger::try_with_str("info") // 日志级别
         .unwrap()
+        .format(|w, now, record| {
+            write!(
+                w,
+                "[{}] [{}] [{}] {}",
+                now.now().format("%Y-%m-%d %H:%M:%S%.3f"),
+                record.level(),
+                record.target(),
+                record.args()
+            )
+        })
         .log_to_file(FileSpec::default().basename("lastlog").suffix("log"))
         .append()
         .write_mode(WriteMode::BufferAndFlush) // 缓冲+刷新
@@ -155,6 +274,21 @@ pub fn prevent_multiple_instances(app_name: &str) -> bool {
     let mutex_name = format!("Global\\{}", app_name);
     let wide_name: Vec<u16> = mutex_name.encode_utf16().chain(Some(0)).collect();
 
+    // 先尝试打开互斥体，成功则说明已存在
+    let already_exists = unsafe {
+        match OpenMutexW(MUTEX_ALL_ACCESS, false, PCWSTR(wide_name.as_ptr())) {
+            Ok(h) => {
+                let _ = CloseHandle(h);
+                true
+            }
+            Err(_) => false,
+        }
+    };
+
+    if already_exists {
+        return false; // 已有实例在运行
+    }
+
     // SAFETY: CreateMutexW 是标准 Windows API，参数合法：
     // - lpMutexAttributes = None：使用默认安全属性
     // - bInitialOwner = false：不立即拥有互斥体
@@ -164,30 +298,17 @@ pub fn prevent_multiple_instances(app_name: &str) -> bool {
         Ok(h) => h,
         Err(_) => {
             // 创建失败（可能由于权限不足等），保守策略允许运行
+            warn!("创建失败，保守允许运行");
             return true;
         }
-    };
-
-    // SAFETY: GetLastError 读取线程最后的错误码，不会导致未定义行为。
-    let already_exists = match unsafe { GetLastError() } {
-        Ok(()) => false,
-        Err(e) => e.code().0 == ERROR_ALREADY_EXISTS.0 as i32,
     };
 
     // SAFETY: IsInvalid 是 HANDLE 的方法，检查是否为 INVALID_HANDLE_VALUE。
     if handle.is_invalid() {
         // 句柄无效，保守允许运行
-        return true;
+        warn!("句柄无效，保守允许运行");
     }
-
-    if already_exists {
-        // SAFETY: CloseHandle 关闭有效句柄，handle 由 CreateMutexW 返回且未被关闭。
-        unsafe { let _ = CloseHandle(handle); };
-        false // 已有实例
-    } else {
-        // 成功创建新互斥体，保持句柄打开（进程退出时自动释放）
-        true
-    }
+    return true;
 }
 
 // 将十六进制字符串解析为 u64，支持带或不带 "0x"/"0X" 前缀
@@ -449,7 +570,8 @@ pub fn set_auto_start(enable: bool) {
                 return;
             }
         };
-        let exe_path_wide: Vec<u16> = exe_path.to_string_lossy().encode_utf16().chain(Some(0)).collect();
+        let quoted_exe_path = format!("\"{}\"", exe_path.to_string_lossy());
+        let exe_path_wide: Vec<u16> = quoted_exe_path.encode_utf16().chain(Some(0)).collect();
         let data_bytes = unsafe {
             // SAFETY: exe_path_wide 有效，转为字节切片。
             std::slice::from_raw_parts(exe_path_wide.as_ptr() as *const u8, exe_path_wide.len() * 2)
@@ -459,12 +581,7 @@ pub fn set_auto_start(enable: bool) {
             RegSetValueExW(hkey, value_name, 0, REG_SZ, Some(data_bytes)).is_ok()
         };
         if !set_ok {
-            if let Some(sender) = UI_SENDER.get() {
-                let _ = sender.send(UiCommand::ShowError {
-                    title: "其实只是个警告".to_string(),
-                    message: "设置开机自启失败".to_string()
-                });
-            }
+            show_error("其实只是个警告".to_string(), "设置开机自启失败".to_string());
             warn!("设置开机自启失败");
         }
     } else {
@@ -529,7 +646,7 @@ fn tray_callback_select_py() {
     if let Some(path) = select_file("Python文件", "py") {
         let _ = update_json(CONFIG_FILE, "last_wallpaper_path", &serde_json::json!(path));
         let _ = update_json(CONFIG_FILE, "type", &serde_json::json!("py"));
-        let _ = CMD_CHAN.get().unwrap().send(("change".to_string(), path, "py".to_string()));
+        change_wallpaper(&path, &"py".to_string());
     }
 }
 
@@ -537,7 +654,7 @@ fn tray_callback_select_exe() {
     if let Some(path) = select_file("可执行文件", "exe") {
         let _ = update_json(CONFIG_FILE, "last_wallpaper_path", &serde_json::json!(path));
         let _ = update_json(CONFIG_FILE, "type", &serde_json::json!("exe"));
-        let _ = CMD_CHAN.get().unwrap().send(("change".to_string(), path, "exe".to_string()));
+        change_wallpaper(&path, &"exe".to_string());
     }
 }
 
@@ -545,13 +662,18 @@ fn tray_callback_select_video() {
     if let Some(path) = select_file("MP4文件", "mp4") {
         let _ = update_json(CONFIG_FILE, "last_wallpaper_path", &serde_json::json!(path));
         let _ = update_json(CONFIG_FILE, "type", &serde_json::json!("video"));
-        let _ = CMD_CHAN.get().unwrap().send(("change".to_string(), path, "video".to_string()));
+        change_wallpaper(&path, &"video".to_string());
     }
 }
 
 fn tray_callback_about() {
     // 显示关于窗口
     let _ = CMD_CHAN.get().unwrap().send(("about".to_string(), String::new(), String::new()));
+}
+
+fn tray_callback_settings() {
+    // 显示设置窗口
+    let _ = CMD_CHAN.get().unwrap().send(("settings".to_string(), String::new(), String::new()));
 }
 
 fn tray_callback_exit() {
@@ -563,23 +685,6 @@ fn tray_callback_autostart() {
     let enabled = is_auto_start_enabled();
     set_auto_start(!enabled);
     let _ = CMD_CHAN.get().unwrap().send(("autostart_toggle".to_string(), String::new(), String::new()));
-}
-
-// ---- 构建菜单 ----
-fn build_menu(ids: &MenuIds, autostart_enabled: bool) -> Menu {
-    Menu::new()
-        .item(MenuItem::button(
-            ids.autostart,
-            if autostart_enabled { "开机自启✔" } else { "开机自启" },
-        ))
-        .item(MenuItem::separator())
-        .item(MenuItem::button(ids.py, "切换壁纸(Python)"))
-        .item(MenuItem::button(ids.exe, "切换壁纸(exe)"))
-        .item(MenuItem::button(ids.vid, "切换壁纸(mp4)"))
-        .item(MenuItem::separator())
-        .item(MenuItem::button(ids.about, "关于"))
-        .item(MenuItem::separator())
-        .item(MenuItem::button(ids.exit, "退出"))
 }
 
 // ---- 加载图标 ----
@@ -619,45 +724,26 @@ fn run() -> anyhow::Result<()> {
     // 创建通道并设为全局
     let (cmd_sender, cmd_receiver) = bounded::<(String, String, String)>(100);
     CMD_CHAN.set(cmd_sender).expect("CMD_CHAN 已存在");
-    // ui通道
-    UI_SENDER.set(ui::start_ui_thread()).unwrap_or_else(|_| {
-        log::warn!("UI_SENDER 已被初始化，忽略重复设置");
-    });
     // 加载图标
     let icon = load_icon_from_path(ICON_PATH)?;
+    // ui启动
+    start_ui_thread();
 
     // ---------- 创建托盘菜单 ----------
-    // 菜单 ID
-    let ids = MenuIds {
-        autostart: 1,
-        py: 2,
-        exe: 3,
-        vid: 4,
-        about: 5,
-        exit: 6,
-    };
-    // 构建菜单
-    let menu = build_menu(&ids, is_auto_start_enabled());
+    // 集中构建菜单配置（方法一：所有菜单项在 build_menu_config 中定义）
+    let menu_config = build_menu_config(is_auto_start_enabled());
+    let menu = build_ldtray_menu(&menu_config);
     let tray = Tray::new(TrayConfig::new(icon).tooltip("PythonWallpaper").menu(menu))?;
     let handle = tray.handle();
 
     // 启动托盘事件循环（在独立线程）
     thread::spawn(move || {
+        let config = menu_config;
         let _ = tray.run(move |event| {
             if let ldtray::Event::Menu(id) = event {
-                // 直接处理事件，无需通道
-                if id.0 == ids.autostart {
-                    tray_callback_autostart();
-                } else if id.0 == ids.py {
-                    tray_callback_select_py();
-                } else if id.0 == ids.exe {
-                    tray_callback_select_exe();
-                } else if id.0 == ids.vid {
-                    tray_callback_select_video();
-                } else if id.0 == ids.about {
-                    tray_callback_about();
-                } else if id.0 == ids.exit {
-                    tray_callback_exit();
+                // 根据菜单 ID 查找并分发对应动作
+                if let Some(action) = action_for_id(&config, id.0) {
+                    dispatch_action(action);
                 }
             }
         });
@@ -666,14 +752,12 @@ fn run() -> anyhow::Result<()> {
     load_last_wallpaper();
 
     while STATE.running.load(Ordering::Relaxed) {
-        while let Ok((cmd, path, typ)) = cmd_receiver.try_recv() {
+        while let Ok((cmd, _, _)) = cmd_receiver.try_recv() {
             match cmd.as_str() {
-                "change" => {
-                    change_wallpaper(&path, &typ);
-                }
                 "autostart_toggle" => {
                     let enabled = is_auto_start_enabled();
-                    let new_menu = build_menu(&ids, enabled);
+                    let new_config = build_menu_config(enabled);
+                    let new_menu = build_ldtray_menu(&new_config);
                     if let Err(e) = handle.set_menu(new_menu) {
                         error!("更新菜单失败: {}", e);
                     }
@@ -682,13 +766,8 @@ fn run() -> anyhow::Result<()> {
                     let text = {
                         let txt = STATE.info_text.lock().unwrap();
                         if txt.is_empty() {
-                            warn!("关于文本缺失。");
-                            if let Some(sender) = UI_SENDER.get() {
-                                let _ = sender.send(UiCommand::ShowError {
-                                    title: "内容错误".to_string(),
-                                    message: "关于文本缺失".to_string()
-                                });
-                            }
+                            warn!("关于文本缺失");
+                            show_error("这是一个警告".to_string(), "关于文本缺失".to_string());
                             "默认关于文本".to_string()
                         } else {
                             if let Ok(value) = toml::from_str::<toml::Value>(&txt) {
@@ -702,9 +781,10 @@ fn run() -> anyhow::Result<()> {
                             }
                         }
                     };
-                    if let Some(sender) = UI_SENDER.get() {
-                        let _ = sender.send(ui::UiCommand::ShowAbout(text));
-                    }
+                    show_about(text);
+                }
+                "settings" => {
+
                 }
                 "quit" => {
                     STATE.running.store(false, Ordering::Relaxed);

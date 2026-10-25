@@ -5,7 +5,7 @@ edition = "2021"
 build = "build.rs"
 
 [build-dependencies]
-
+slint-build = "1.9"
 embed-resource = "2.4"
 
 [dependencies]
@@ -32,7 +32,16 @@ serde_json = "1.0"
 toml = "0.8"
 
 # 图形界面
-macroquad = "0.4"
+slint = {
+    version = "1.9",
+    default-features = false,
+    features = [
+        "std",
+        "backend-winit",
+        "renderer-femtovg",
+        "compat-1-2",
+    ]
+}
 
 # 系统托盘
 ldtray = "0.1.2"

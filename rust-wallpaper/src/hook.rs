@@ -24,7 +24,6 @@ use crate::{STATE, WallpaperType};
 
 // ---- 常量 ----
 const LIMIT_MS: u64 = 60;
-const ESCAPE_VK: u32 = 0x1B;
 
 // ---- 鼠标事件转发 ----
 fn forward_mouse_event(wparam: WPARAM, lparam: LPARAM, target_hwnd: HWND) {
@@ -108,9 +107,9 @@ fn forward_keyboard_event(wparam: WPARAM, lparam: LPARAM, target_hwnd: HWND) {
     let is_down = wp == WM_KEYDOWN || wp == WM_SYSKEYDOWN;
     let msg_id = if is_down { WM_KEYDOWN } else { WM_KEYUP };
 
-    // 视频壁纸时屏蔽 ESC 键
+    // 视频壁纸时屏蔽
     let wt = STATE.wallpaper_type.load(Ordering::Relaxed);
-    if wt == WallpaperType::Video as isize && vk_code == ESCAPE_VK {
+    if wt == WallpaperType::Video as isize {
         return;
     }
 
@@ -263,6 +262,12 @@ pub fn start_input_thread(target_hwnd: HWND) -> bool {
             // 等待线程结束
             let _ = handle.join();
         }
+    }
+
+    let wt = STATE.wallpaper_type.load(Ordering::Relaxed);
+    if wt == WallpaperType::Video as isize{
+        info!("视频壁纸不启动钩子线程");
+        return false;
     }
 
     // 重置运行标志

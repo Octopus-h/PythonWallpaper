@@ -1,0 +1,272 @@
+import { Button, ScrollView, ListView } from "std-widgets.slint";
+
+struct SettingButton {
+    id: string,
+    text: string,
+}
+
+struct SettingItem {
+    id: string,
+    title: string,
+    description: string,
+    buttons: [SettingButton],
+}
+
+export component MainWindow inherits Window {
+    width: 950px;
+    height: 700px;
+    background: #071426;
+
+    in property <string> page: "settings";
+    in property <string> about-text: "PythonWallpaper\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nVersion: 1.0";
+
+    callback close-requested();
+    callback setting-button-clicked(string, string);
+
+    property <[SettingItem]> settings: [
+        {
+            id: "python",
+            title: "Python 解释器",
+            description: "选择 Python 解释器的位置",
+            buttons: [
+                { id: "builtin", text: "自带" },
+                { id: "environment", text: "环境变量" },
+                { id: "custom", text: "自定义" }
+            ]
+        },
+        {
+            id: "input",
+            title: "鼠键转发",
+            description: "设置壁纸运行时鼠标和键盘事件的转发方式",
+            buttons: [
+                { id: "never", text: "永不" },
+                { id: "desktop", text: "仅处于桌面" },
+                { id: "always", text: "总是" }
+            ]
+        }
+    ];
+
+    property <string> expanded-setting: "";
+    property <string> python-mode: "builtin";
+    property <string> input-mode: "desktop";
+
+    Rectangle {
+        background: #0b1d33;
+        border-radius: 18px;
+
+        VerticalLayout {
+            padding: 30px;
+            spacing: 15px;
+
+            if root.page == "about" : VerticalLayout {
+                spacing: 12px;
+
+                Text {
+                    text: "关于 PythonWallpaper";
+                    font-size: 28px;
+                    color: #38bdf8;
+                }
+
+                Rectangle {
+                    height: 2px;
+                    background: #1677ff;
+                }
+
+                Text {
+                    text: "PythonWallpaper";
+                    font-size: 22px;
+                    color: #e5f3ff;
+                }
+
+                ScrollView {
+                    height: 480px;
+                    viewport-height: about_text.height;
+
+                    about_text := Text {
+                        text: root.about-text;
+                        font-size: 20px;
+                        color: #a9c7df;
+                        wrap: word-wrap;
+                        width: parent.width;
+                    }
+                }
+            }
+
+            if root.page == "settings" : VerticalLayout {
+                spacing: 12px;
+
+                Text {
+                    text: "设置";
+                    font-size: 28px;
+                    color: #38bdf8;
+                }
+
+                Rectangle {
+                    height: 2px;
+                    background: #1677ff;
+                }
+
+                settings-list := ListView {
+                    for item in root.settings : Rectangle {
+                        width: parent.width;
+                        height: root.expanded-setting == item.id ? 112px : 72px;
+                        background: #102640;
+                        border-radius: 8px;
+
+                        VerticalLayout {
+                            padding: 10px;
+                            spacing: 5px;
+
+                            TouchArea {
+                                clicked => {
+                                    if root.expanded-setting == item.id {
+                                        root.expanded-setting = "";
+                                    } else {
+                                        root.expanded-setting = item.id;
+                                    }
+                                }
+
+                                HorizontalLayout {
+                                    spacing: 8px;
+
+                                    VerticalLayout {
+                                        horizontal-stretch: 1;
+                                        alignment: start;
+
+                                        Text {
+                                            text: item.title;
+                                            font-size: 19px;
+                                            color: #e5f3ff;
+                                        }
+
+                                        Text {
+                                            text: item.description;
+                                            font-size: 13px;
+                                            color: #7f9bb5;
+                                        }
+                                    }
+
+                                    Rectangle {
+                                        horizontal-stretch: 0;
+                                        width: 28px;
+                                        height: 28px;
+
+                                        if root.expanded-setting == item.id : Text {
+                                            text: "-";
+                                            font-size: 23px;
+                                            color: #38bdf8;
+                                        }
+
+                                        if root.expanded-setting != item.id : Text {
+                                            text: "›";
+                                            font-size: 23px;
+                                            color: #7f9bb5;
+                                        }
+                                    }
+                                }
+                            }
+
+                            if root.expanded-setting == item.id : HorizontalLayout {
+                                spacing: 6px;
+
+                                for setting-button in item.buttons : Button {
+                                    text: setting-button.text;
+                                    width: 95px;
+                                    height: 32px;
+
+                                    clicked => {
+                                        root.setting-button-clicked(
+                                            item.id,
+                                            setting-button.id
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Button {
+                text: "关闭";
+                width: 100px;
+                height: 34px;
+                clicked => {
+                    root.close-requested();
+                }
+            }
+        }
+    }
+}
+
+export component ErrorWindow inherits Window {
+    width: 950px;
+    height: 700px;
+    background: #071426;
+
+    in property <string> error-title: "发生未知错误";
+    in property <string> error-message: "程序运行过程中遇到了Bug";
+    in property <image> error-icon: @image-url("../../../resources/icons/found_bug.png");
+
+    callback close-requested();
+
+    Rectangle {
+        background: #0b1d33;
+        border-radius: 18px;
+
+        VerticalLayout {
+            padding: 35px;
+            spacing: 20px;
+
+            Text {
+                text: "不好！程序里冒出一只Bug";
+                font-size: 30px;
+                color: #38bdf8;
+            }
+
+            Rectangle {
+                height: 2px;
+                background: #1677ff;
+            }
+
+            Text {
+                text: root.error-title;
+                font-size: 22px;
+                color: #a9c7df;
+            }
+
+            HorizontalLayout {
+                spacing: 25px;
+
+                Image {
+                    source: root.error-icon;
+                    width: 295px;
+                    height: 451px;
+                }
+
+                ScrollView {
+                    height: 295px;
+                    width: 650px;
+                    viewport-height: error_text.height;
+
+                    error_text := Text {
+                        text: root.error-message;
+                        font-size: 18px;
+                        color: #a9c7df;
+                        wrap: word-wrap;
+                        width: parent.width;
+                    }
+                }
+            }
+
+            Button {
+                text: "关闭";
+                width: 120px;
+                height: 40px;
+                clicked => {
+                    root.close-requested();
+                }
+            }
+        }
+    }
+}

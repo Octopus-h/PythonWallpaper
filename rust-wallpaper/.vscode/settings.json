@@ -15,6 +15,8 @@
 
   // 当 rust-analyzer 内部调用 cargo（比如进行 check/build）时使用的环境
   "rust-analyzer.cargo.extraEnv": {
+    "SLINT_STYLE": "native",
+    "SLINT_FONTS": "",
     "RUSTUP_HOME": "P:\\rust-portable-cross\\tools\\rustup-home",
     "CARGO_HOME": "P:\\rust-portable-cross\\tools\\cargo-home",
     "RUSTUP_TOOLCHAIN": "stable-x86_64-pc-windows-gnu",
