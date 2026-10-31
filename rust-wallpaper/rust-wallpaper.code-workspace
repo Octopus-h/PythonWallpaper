@@ -1,0 +1,31 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"rust-analyzer.server.extraEnv": {
+			"RUSTUP_HOME": "P:\\rust-portable-cross\\tools\\rustup-home",
+			"CARGO_HOME": "P:\\rust-portable-cross\\tools\\cargo-home",
+			"RUSTUP_TOOLCHAIN": "stable-x86_64-pc-windows-gnu",
+			"PATH": "P:\\rust-portable-cross\\tools\\cargo-home\\bin;${env:PATH}"
+		},
+		"rust-analyzer.cargo.extraEnv": {
+			"SLINT_STYLE": "native",
+			"SLINT_FONTS": "",
+			"RUSTUP_HOME": "P:\\rust-portable-cross\\tools\\rustup-home",
+			"CARGO_HOME": "P:\\rust-portable-cross\\tools\\cargo-home",
+			"RUSTUP_TOOLCHAIN": "stable-x86_64-pc-windows-gnu",
+			"PATH": "P:\\MinGW\\bin;P:\\rust-portable-cross\\tools\\cargo-home\\bin;${env:PATH}"
+		},
+		"terminal.integrated.env.windows": {
+			"RUSTUP_HOME": "P:\\rust-portable-cross\\tools\\rustup-home",
+			"CARGO_HOME": "P:\\rust-portable-cross\\tools\\cargo-home",
+			"PATH": "P:\\MinGW\\bin;P:\\rust-portable-cross\\tools\\cargo-home\\bin;${env:PATH}"
+		},
+		"rust-analyzer.procMacro.enable": true,
+		"rust-analyzer.cargo.features": [],
+		"python-envs.defaultEnvManager": "ms-python.python:system"
+	}
+}

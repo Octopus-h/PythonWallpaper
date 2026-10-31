@@ -68,12 +68,21 @@ chrono = "0.4"
 lazy_static = "1.4"
 
 [profile.dev]
-# 调试模式优化（可选）
+# 调试模式优化
 opt-level = 0
 
 [profile.release]
-# 发布模式优化（减小体积）
+# 发布模式优化
 opt-level = "z"
 lto = true
 codegen-units = 1
 strip = true
+
+[profile.release_small]
+# 最小化优化
+inherits = "release"
+opt-level = "s"
+lto = "thin"
+codegen-units = 1
+strip = "symbols"
+panic = "abort"

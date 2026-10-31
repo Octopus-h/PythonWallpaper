@@ -20,7 +20,7 @@ use windows::{
     },
 };
 
-use crate::{STATE, WallpaperType};
+use crate::{STATE, state::WallpaperType};
 
 // ---- 常量 ----
 const LIMIT_MS: u64 = 60;
